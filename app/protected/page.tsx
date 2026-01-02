@@ -1,43 +1,69 @@
 import { redirect } from "next/navigation";
-
 import { createClient } from "@/lib/supabase/server";
-import { InfoIcon } from "lucide-react";
-import { FetchDataSteps } from "@/components/tutorial/fetch-data-steps";
-import { Suspense } from "react";
+import { Beaker, Search, LogOut } from "lucide-react";
+import { ScreenContainer } from "@/components/ui/screen-container";
+import Link from "next/link";
+import { signOutAction } from "../actions";
 
-async function UserDetails() {
+export default async function ProtectedPage() {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (error || !data?.claims) {
-    redirect("/auth/login");
+  if (!user) {
+    return redirect("/auth/login");
   }
 
-  return JSON.stringify(data.claims, null, 2);
-}
-
-export default function ProtectedPage() {
   return (
-    <div className="flex-1 w-full flex flex-col gap-12">
-      <div className="w-full">
-        <div className="bg-accent text-sm p-3 px-5 rounded-md text-foreground flex gap-3 items-center">
-          <InfoIcon size="16" strokeWidth={2} />
-          This is a protected page that you can only see as an authenticated
-          user
+    <ScreenContainer>
+      {/* Header */}
+      <header className="flex h-16 items-center justify-between px-6 pt-4 pb-2">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-2xl font-bold text-slate-800">ホーム</h1>
+          <span className="text-xs text-slate-500">{user.email}</span>
         </div>
+        <form action={signOutAction}>
+          <button type="submit" className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
+            <LogOut className="w-3 h-3" />
+            <span>ログアウト</span>
+          </button>
+        </form>
+      </header>
+
+      <div className="flex-1 flex flex-col items-center gap-6 px-6 pt-4 pb-8 overflow-y-auto">
+        {/* Solvent Registration/Usage Card */}
+        <Link href="/inventory/adjust" className="w-full max-w-sm group">
+          <div className="bg-white rounded-[2rem] border-[3px] border-[#B2DFDB] p-8 flex flex-col items-center text-center shadow-sm group-hover:shadow-md transition-all h-full">
+            <div className="bg-[#E0F2F1] p-6 rounded-full mb-6 group-hover:scale-110 transition-transform">
+              <Beaker className="w-10 h-10 text-[#00897B]" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-xl font-bold text-[#263238] mb-4">
+              溶媒の登録・使用
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              新しい試薬を登録、<br />
+              または使用量を記録します
+            </p>
+          </div>
+        </Link>
+
+        {/* Solvent Viewing Card */}
+        <Link href="/inventory" className="w-full max-w-sm group">
+          <div className="bg-white rounded-[2rem] border-[3px] border-[#B3E5FC] p-8 flex flex-col items-center text-center shadow-sm group-hover:shadow-md transition-all h-full">
+            <div className="bg-[#E1F5FE] p-6 rounded-full mb-6 group-hover:scale-110 transition-transform">
+              <Search className="w-10 h-10 text-[#039BE5]" strokeWidth={2} />
+            </div>
+            <h2 className="text-xl font-bold text-[#263238] mb-4">
+              溶媒の在庫閲覧
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              現在の在庫状況を確認、<br />
+              検索します
+            </p>
+          </div>
+        </Link>
       </div>
-      <div className="flex flex-col gap-2 items-start">
-        <h2 className="font-bold text-2xl mb-4">Your user details</h2>
-        <pre className="text-xs font-mono p-3 rounded border max-h-32 overflow-auto">
-          <Suspense>
-            <UserDetails />
-          </Suspense>
-        </pre>
-      </div>
-      <div>
-        <h2 className="font-bold text-2xl mb-4">Next steps</h2>
-        <FetchDataSteps />
-      </div>
-    </div>
+    </ScreenContainer>
   );
 }
