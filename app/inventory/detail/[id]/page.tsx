@@ -113,12 +113,6 @@ export default function DetailScreen() {
 
     const { solvents, rooms } = detail;
 
-    // Helper to format date
-    // const formatDate = (dateStr: string) => {
-    //     const d = new Date(dateStr);
-    //     return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
-    // };
-
 
     // Helper to format date
     const formatDate = (dateStr: string) => {
@@ -152,7 +146,7 @@ export default function DetailScreen() {
 
                             {/* Prominent Amount Display */}
                             <div className="mt-6 mb-4 text-center">
-                                <p className="text-xs text-slate-400 font-medium mb-1">現在庫</p>
+                                <p className="text-xs text-slate-400 font-medium mb-1">現在量</p>
                                 <p className="text-4xl font-bold text-teal-600 tracking-tight">
                                     {detail.amount} <span className="text-xl text-teal-500 ml-1">L</span>
                                 </p>

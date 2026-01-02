@@ -1,3 +1,6 @@
+// 動的ページとして明示
+export const dynamic = "force-dynamic";
+
 import { ScreenContainer } from "@/components/ui/screen-container";
 import { CustomButton } from "@/components/ui/custom-button";
 import { CustomInput } from "@/components/ui/custom-input";
