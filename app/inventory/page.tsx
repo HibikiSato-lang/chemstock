@@ -15,11 +15,19 @@ import { CustomButton } from "@/components/ui/custom-button";
 import { CustomInput } from "@/components/ui/custom-input";
 import { Search as SearchIcon, Home, FileText, Hash, MapPin, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function SearchScreen() {
+    return (
+        <Suspense fallback={<ScreenContainer><div className="flex-1 flex items-center justify-center">読み込み中...</div></ScreenContainer>}>
+            <SearchScreenContent />
+        </Suspense>
+    );
+}
+
+function SearchScreenContent() {
     const searchParams = useSearchParams();
     const mode = searchParams.get('mode') || 'view'; // 'view' or 'action'
     const [searchType, setSearchType] = useState<"name" | "cas" | "room">("name");

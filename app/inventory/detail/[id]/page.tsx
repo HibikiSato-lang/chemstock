@@ -5,7 +5,7 @@ import { CustomButton } from "@/components/ui/custom-button";
 import { ArrowLeft, Beaker, Download, History, Plus, Minus } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 
 interface InventoryDetail {
@@ -30,6 +30,14 @@ interface LogItem {
 }
 
 export default function DetailScreen() {
+    return (
+        <Suspense fallback={<ScreenContainer><div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div></div></ScreenContainer>}>
+            <DetailScreenContent />
+        </Suspense>
+    );
+}
+
+function DetailScreenContent() {
     const params = useParams();
     const id = params?.id as string;
 

@@ -1,11 +1,12 @@
-// 動的ページとして明示
-export const dynamic = "force-dynamic";
+"use client";
 
 import { ScreenContainer } from "@/components/ui/screen-container";
 import { CustomButton } from "@/components/ui/custom-button";
 import { CustomInput } from "@/components/ui/custom-input";
 import { Search, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Suspense } from "react";
 
 // Mock data for inventory
 const inventoryData = [
@@ -16,12 +17,17 @@ const inventoryData = [
     { name: "トルエン", amount: "10 L" },
 ];
 
-export default async function RoomInventoryScreen({
-    params,
-}: {
-    params: Promise<{ roomId: string }>;
-}) {
-    const { roomId } = await params;
+export default function RoomInventoryScreen() {
+    return (
+        <Suspense fallback={<ScreenContainer><div className="flex-1 flex items-center justify-center">読み込み中...</div></ScreenContainer>}>
+            <RoomInventoryScreenContent />
+        </Suspense>
+    );
+}
+
+function RoomInventoryScreenContent() {
+    const params = useParams();
+    const roomId = params?.roomId as string;
 
     // Map roomId to display name (mock logic)
     const roomName =
@@ -86,3 +92,4 @@ export default async function RoomInventoryScreen({
         </ScreenContainer>
     );
 }
+

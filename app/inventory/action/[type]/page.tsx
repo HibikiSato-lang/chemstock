@@ -6,10 +6,18 @@ import { CustomInput } from "@/components/ui/custom-input";
 import { ArrowLeft, Beaker, Check, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function ActionScreen() {
+    return (
+        <Suspense fallback={<ScreenContainer><div className="flex-1 flex items-center justify-center">読み込み中...</div></ScreenContainer>}>
+            <ActionScreenContent />
+        </Suspense>
+    );
+}
+
+function ActionScreenContent() {
 
     // In strict Next.js 14/15 Client Components, we should check how params are passed.
     // However, useParams() hook is the standard client-side way to access route params.

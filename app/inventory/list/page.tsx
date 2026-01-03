@@ -6,7 +6,7 @@ import { ArrowLeft, Beaker, ChevronRight, Home } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
 // Define strict types for the fetched data
 interface InventoryData {
@@ -25,6 +25,14 @@ interface DisplayItem {
 }
 
 export default function InventoryListScreen() {
+    return (
+        <Suspense fallback={<ScreenContainer><div className="flex-1 flex items-center justify-center">読み込み中...</div></ScreenContainer>}>
+            <InventoryListScreenContent />
+        </Suspense>
+    );
+}
+
+function InventoryListScreenContent() {
     const searchParams = useSearchParams();
     const type = searchParams.get("type");
     const query = searchParams.get("q") || "";
