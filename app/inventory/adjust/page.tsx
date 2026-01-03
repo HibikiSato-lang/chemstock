@@ -81,7 +81,7 @@ export default function AdjustInventoryScreen() {
                 <h1 className="text-3xl font-bold tracking-wider text-slate-800" style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.1)" }}>
                     残量調整
                 </h1>
-                <Link href="/home">
+                <Link href="/protected">
                     <Home className="w-8 h-8 text-black" />
                 </Link>
             </header>

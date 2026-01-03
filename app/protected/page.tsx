@@ -31,9 +31,9 @@ export default async function ProtectedPage() {
         </form>
       </header>
 
-      <div className="flex-1 flex flex-col items-center gap-6 px-6 pt-4 pb-8 overflow-y-auto">
+      <div className="flex-1 flex flex-col gap-6 px-6 pt-4 pb-8 overflow-y-auto">
         {/* Solvent Registration/Usage Card */}
-        <Link href="/inventory/adjust" className="w-full max-w-sm group">
+        <Link href="/inventory/adjust" className="w-full group">
           <div className="bg-white rounded-[2rem] border-[3px] border-[#B2DFDB] p-8 flex flex-col items-center text-center shadow-sm group-hover:shadow-md transition-all h-full">
             <div className="bg-[#E0F2F1] p-6 rounded-full mb-6 group-hover:scale-110 transition-transform">
               <Beaker className="w-10 h-10 text-[#00897B]" strokeWidth={1.5} />
@@ -49,7 +49,7 @@ export default async function ProtectedPage() {
         </Link>
 
         {/* Solvent Viewing Card */}
-        <Link href="/inventory" className="w-full max-w-sm group">
+        <Link href="/inventory" className="w-full group">
           <div className="bg-white rounded-[2rem] border-[3px] border-[#B3E5FC] p-8 flex flex-col items-center text-center shadow-sm group-hover:shadow-md transition-all h-full">
             <div className="bg-[#E1F5FE] p-6 rounded-full mb-6 group-hover:scale-110 transition-transform">
               <Search className="w-10 h-10 text-[#039BE5]" strokeWidth={2} />
