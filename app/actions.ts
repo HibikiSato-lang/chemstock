@@ -24,6 +24,18 @@ export async function signInAction(prevState: any, formData: FormData) {
     return redirect("/protected"); // Fixed redirect to correct path
 }
 
+export async function signInAsGuestAction() {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signInAnonymously();
+
+    if (error) {
+        console.error("Guest login failed:", error);
+        return { error: "ゲストログインに失敗しました: " + error.message };
+    }
+
+    return redirect("/protected");
+}
+
 export async function signOutAction() {
     const supabase = await createClient();
     await supabase.auth.signOut();
