@@ -227,7 +227,7 @@ export default function AdjustInventoryScreen() {
                 <div className="flex items-center justify-between pt-8 pb-4">
                     <button
                         onClick={() => setAmount("0")}
-                        className="text-lg font-medium border-b border-black pb-0.5 hover:opacity-70"
+                        className="text-lg font-medium hover:opacity-70 text-black"
                     >
                         リセット
                     </button>
