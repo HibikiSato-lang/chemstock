@@ -100,7 +100,7 @@ export default function AdjustInventoryScreen() {
                             placeholder="部屋を選択..."
                             value={roomQuery}
                             onChange={(e) => setRoomQuery(e.target.value)}
-                            className="w-full border-2 border-[#1E88E5] rounded-md p-2 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5]"
+                            className="w-full border-2 border-[#1E88E5] rounded-md p-2 text-black bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5]"
                         />
                         <div className="space-y-3">
                             {rooms.filter(room => room.name.includes(roomQuery)).map((room) => (
@@ -129,7 +129,7 @@ export default function AdjustInventoryScreen() {
                             placeholder="溶媒を選択..."
                             value={solventQuery}
                             onChange={(e) => setSolventQuery(e.target.value)}
-                            className="w-full border-2 border-[#1E88E5] rounded-md p-2 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5]"
+                            className="w-full border-2 border-[#1E88E5] rounded-md p-2 text-black bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5]"
                         />
                         <div className="space-y-3">
                             {solvents.filter(s => s.name.includes(solventQuery)).map((solvent) => (
@@ -176,7 +176,7 @@ export default function AdjustInventoryScreen() {
                                         type="text"
                                         value={amount}
                                         onChange={handleAmountChange}
-                                        className="w-32 h-14 text-center text-3xl font-bold border-none outline-none focus:ring-0 text-black"
+                                        className="w-32 h-14 text-center text-3xl font-bold border-none outline-none focus:ring-0 text-black bg-white"
                                     />
                                 </div>
                             </div>
