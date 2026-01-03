@@ -186,7 +186,7 @@ function ActionScreenContent() {
                             </div>
 
                             <div className="flex items-center justify-center p-4">
-                                <ArrowLeft className="w-4 h-4 text-slate-300 rotate-90" />
+                                <ArrowLeft className="w-4 h-4 text-slate-300 -rotate-90" />
                             </div>
 
                             <div className="p-4 bg-white border border-slate-200 rounded-xl text-center">
