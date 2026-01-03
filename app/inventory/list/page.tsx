@@ -128,39 +128,49 @@ function InventoryListScreenContent() {
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00897B]"></div>
                         </div>
                     ) : (
-                        filteredInventory.map((item) => (
-                            <Link href={`/inventory/detail/${item.id}`} key={item.id} className="block group">
-                                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm group-hover:shadow-md group-hover:border-[#80CBC4] transition-all">
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex gap-3">
-                                            <div className="p-2 bg-[#E0F2F1] rounded-lg h-fit">
-                                                <Beaker className="w-5 h-5 text-[#00897B]" />
+                        filteredInventory.map((item) => {
+                            const detailParams = new URLSearchParams();
+                            if (type) detailParams.set("type", type);
+                            if (query) detailParams.set("q", query);
+                            return (
+                                <Link
+                                    href={`/inventory/detail/${item.id}?${detailParams.toString()}`}
+                                    key={item.id}
+                                    className="block group"
+                                >
+                                    <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm group-hover:shadow-md group-hover:border-[#80CBC4] transition-all">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex gap-3">
+                                                <div className="p-2 bg-[#E0F2F1] rounded-lg h-fit">
+                                                    <Beaker className="w-5 h-5 text-[#00897B]" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-slate-800 group-hover:text-[#00695C] transition-colors">
+                                                        {item.name}
+                                                    </h3>
+                                                    <p className="text-xs text-slate-400 mt-1">CAS: {item.cas}</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5">{item.location}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h3 className="font-bold text-slate-800 group-hover:text-[#00695C] transition-colors">
-                                                    {item.name}
-                                                </h3>
-                                                <p className="text-xs text-slate-400 mt-1">CAS: {item.cas}</p>
-                                                <p className="text-xs text-slate-500 mt-0.5">{item.location}</p>
+                                            <div className="text-right">
+                                                <span className="block text-lg font-bold text-slate-700">
+                                                    {item.amount}
+                                                </span>
+                                                <span className="text-xs text-slate-400">残量</span>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <span className="block text-lg font-bold text-slate-700">
-                                                {item.amount}
-                                            </span>
-                                            <span className="text-xs text-slate-400">残量</span>
+                                        <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end items-center text-xs text-[#00897B] font-medium">
+                                            詳細を見る
+                                            <ChevronRight className="w-4 h-4 ml-1" />
                                         </div>
                                     </div>
-                                    <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end items-center text-xs text-[#00897B] font-medium">
-                                        詳細を見る
-                                        <ChevronRight className="w-4 h-4 ml-1" />
-                                    </div>
-                                </div>
-                            </Link>
-                        ))
+                                </Link>
+                            );
+                        })
                     )}
                 </div>
             </div>
         </ScreenContainer>
     );
 }
+

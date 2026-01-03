@@ -4,7 +4,7 @@ import { ScreenContainer } from "@/components/ui/screen-container";
 import { CustomButton } from "@/components/ui/custom-button";
 import { ArrowLeft, Beaker, Download, History, Plus, Minus } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -40,6 +40,14 @@ export default function DetailScreen() {
 function DetailScreenContent() {
     const params = useParams();
     const id = params?.id as string;
+    const searchParams = useSearchParams();
+    const type = searchParams.get("type");
+    const q = searchParams.get("q");
+
+    const backParams = new URLSearchParams();
+    if (type) backParams.set("type", type);
+    if (q) backParams.set("q", q);
+    const backLink = `/inventory/list${backParams.toString() ? '?' + backParams.toString() : ''}`;
 
     const [detail, setDetail] = useState<InventoryDetail | null>(null);
     const [logs, setLogs] = useState<LogItem[]>([]);
@@ -131,7 +139,7 @@ function DetailScreenContent() {
     return (
         <ScreenContainer>
             <header className="h-16 flex items-center px-4 border-b bg-white sticky top-0 z-10">
-                <Link href="/inventory/list" className="p-2 -ml-2 hover:bg-slate-100 rounded-full transition-colors">
+                <Link href={backLink} className="p-2 -ml-2 hover:bg-slate-100 rounded-full transition-colors">
                     <ArrowLeft className="w-5 h-5 text-slate-600" />
                 </Link>
                 <div className="ml-2 flex-1 text-center pr-8">
