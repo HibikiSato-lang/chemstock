@@ -25,7 +25,7 @@ export default function CompleteScreen() {
                         </CustomButton>
                     </Link>
 
-                    <Link href="/inventory?mode=action" className="block w-full">
+                    <Link href="/inventory/adjust" className="block w-full">
                         <button className="w-full py-4 text-teal-600 font-bold hover:bg-teal-50 rounded-xl transition-colors">
                             続けて操作する
                         </button>
