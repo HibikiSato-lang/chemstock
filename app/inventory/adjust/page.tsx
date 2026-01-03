@@ -20,6 +20,8 @@ export default function AdjustInventoryScreen() {
     const [actionType, setActionType] = useState<"add" | "use">("add");
     const [roomQuery, setRoomQuery] = useState("");
     const [solventQuery, setSolventQuery] = useState("");
+    const [showRoomList, setShowRoomList] = useState(false);
+    const [showSolventList, setShowSolventList] = useState(false);
 
     // Dynamic Options from DB
     const [rooms, setRooms] = useState<Item[]>([]);
@@ -94,26 +96,43 @@ export default function AdjustInventoryScreen() {
                         <span className="inline-block w-4 h-4 rounded-full border-2 border-black mr-2"></span>
                         部屋選択
                     </h2>
-                    <div className="bg-white rounded-lg shadow-sm p-4 space-y-4 min-h-[160px]">
+                    <div className="relative">
                         <input
                             type="text"
                             placeholder="部屋を選択..."
                             value={roomQuery}
-                            onChange={(e) => setRoomQuery(e.target.value)}
-                            className="w-full border-2 border-[#1E88E5] rounded-md p-2 text-black bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5]"
+                            onChange={(e) => {
+                                setRoomQuery(e.target.value);
+                                setShowRoomList(true);
+                            }}
+                            onFocus={() => setShowRoomList(true)}
+                            onBlur={() => setTimeout(() => setShowRoomList(false), 200)}
+                            className="w-full border-2 border-[#1E88E5] rounded-md p-3 text-black bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5] shadow-sm"
                         />
-                        <div className="space-y-3">
-                            {rooms.filter(room => room.name.includes(roomQuery)).map((room) => (
-                                <button
-                                    key={room.id}
-                                    onClick={() => setSelectedRoom(room)}
-                                    className={`flex items-center w-full text-left space-x-3 ${selectedRoom?.id === room.id ? "text-teal-600 font-bold" : "text-gray-700 hover:text-gray-900"}`}
-                                >
-                                    <Tag className="w-5 h-5 rotate-90" />
-                                    <span>{room.name}</span>
-                                </button>
-                            ))}
-                        </div>
+                        {showRoomList && (
+                            <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-xl border border-slate-200 max-h-60 overflow-y-auto">
+                                {rooms.filter(room => room.name.includes(roomQuery)).length > 0 ? (
+                                    rooms.filter(room => room.name.includes(roomQuery)).map((room) => (
+                                        <button
+                                            key={room.id}
+                                            onClick={() => {
+                                                setSelectedRoom(room);
+                                                setRoomQuery(room.name);
+                                                setShowRoomList(false);
+                                            }}
+                                            className={`flex items-center w-full text-left p-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors ${selectedRoom?.id === room.id ? "bg-teal-50 text-teal-700 font-bold" : "text-gray-700"}`}
+                                        >
+                                            <Tag className="w-4 h-4 mr-3 rotate-90 text-slate-400" />
+                                            <span>{room.name}</span>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="p-4 text-center text-sm text-slate-400">
+                                        候補が見つかりません
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -123,26 +142,43 @@ export default function AdjustInventoryScreen() {
                         <span className="inline-block w-4 h-4 rounded-full border-2 border-black mr-2"></span>
                         溶媒選択
                     </h2>
-                    <div className="bg-white rounded-lg shadow-sm p-4 space-y-4 min-h-[160px]">
+                    <div className="relative">
                         <input
                             type="text"
                             placeholder="溶媒を選択..."
                             value={solventQuery}
-                            onChange={(e) => setSolventQuery(e.target.value)}
-                            className="w-full border-2 border-[#1E88E5] rounded-md p-2 text-black bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5]"
+                            onChange={(e) => {
+                                setSolventQuery(e.target.value);
+                                setShowSolventList(true);
+                            }}
+                            onFocus={() => setShowSolventList(true)}
+                            onBlur={() => setTimeout(() => setShowSolventList(false), 200)}
+                            className="w-full border-2 border-[#1E88E5] rounded-md p-3 text-black bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E88E5] shadow-sm"
                         />
-                        <div className="space-y-3">
-                            {solvents.filter(s => s.name.includes(solventQuery)).map((solvent) => (
-                                <button
-                                    key={solvent.id}
-                                    onClick={() => setSelectedSolvent(solvent)}
-                                    className={`flex items-center w-full text-left space-x-3 ${selectedSolvent?.id === solvent.id ? "text-teal-600 font-bold" : "text-gray-700 hover:text-gray-900"}`}
-                                >
-                                    <Tag className="w-5 h-5 rotate-90" />
-                                    <span>{solvent.name}</span>
-                                </button>
-                            ))}
-                        </div>
+                        {showSolventList && (
+                            <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-xl border border-slate-200 max-h-60 overflow-y-auto">
+                                {solvents.filter(s => s.name.includes(solventQuery)).length > 0 ? (
+                                    solvents.filter(s => s.name.includes(solventQuery)).map((solvent) => (
+                                        <button
+                                            key={solvent.id}
+                                            onClick={() => {
+                                                setSelectedSolvent(solvent);
+                                                setSolventQuery(solvent.name);
+                                                setShowSolventList(false);
+                                            }}
+                                            className={`flex items-center w-full text-left p-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors ${selectedSolvent?.id === solvent.id ? "bg-teal-50 text-teal-700 font-bold" : "text-gray-700"}`}
+                                        >
+                                            <Tag className="w-4 h-4 mr-3 rotate-90 text-slate-400" />
+                                            <span>{solvent.name}</span>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="p-4 text-center text-sm text-slate-400">
+                                        候補が見つかりません
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
