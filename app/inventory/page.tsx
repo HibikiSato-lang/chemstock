@@ -86,19 +86,22 @@ function SearchScreenContent() {
 
     // Filter Logic
     const getSuggestions = () => {
-        if (!query) return [];
-        const q = query.toLowerCase();
         let list: string[] = [];
+        const q = query.toLowerCase();
 
         if (searchType === 'room') list = candidates.room;
         else if (searchType === 'name') list = candidates.name;
-        else if (searchType === 'cas') {
+        else if (searchType === 'cas') list = candidates.cas;
+
+        if (!query) return list; // Return all (or handled by slice below)
+
+        if (searchType === 'cas') {
             // Special handling for CAS to ignore hyphens
             const cleanQ = q.replace(/-/g, '');
-            return candidates.cas.filter(c => c.replace(/-/g, '').includes(cleanQ)).slice(0, 5);
+            return list.filter(c => c.replace(/-/g, '').includes(cleanQ));
         }
 
-        return list.filter(item => item.toLowerCase().includes(q)).slice(0, 5);
+        return list.filter(item => item.toLowerCase().includes(q));
     };
 
     const suggestions = getSuggestions();
@@ -175,7 +178,7 @@ function SearchScreenContent() {
 
                             {/* Suggestions Dropdown */}
                             {showSuggestions && suggestions.length > 0 && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                                     {suggestions.map((suggestion, idx) => (
                                         <button
                                             key={idx}
