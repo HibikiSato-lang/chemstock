@@ -7,10 +7,11 @@ import { Home, Tag, CheckSquare, Square } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AdjustInventoryScreen() {
     const router = useRouter();
+    const supabase = createClient();
     // specific types for our data
     type Item = { id: string; name: string };
 
@@ -39,6 +40,51 @@ export default function AdjustInventoryScreen() {
             const { data: solventData } = await supabase.from('solvents').select('id, name').order('name');
             if (solventData) {
                 setSolvents(solventData);
+            }
+
+            // Fetch Last Used Item for logged-in user
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.email) {
+                // Find latest log for this user
+                const { data: lastLog } = await supabase
+                    .from('inventory_logs')
+                    .select('inventory_id, change_amount')
+                    .eq('user_name', user.email)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (lastLog) {
+                    // Set action type and amount
+                    const val = lastLog.change_amount;
+                    setActionType(val >= 0 ? "add" : "use");
+                    setAmount(String(Math.abs(val)));
+
+                    // Get inventory details (room and solvent)
+                    const { data: inventoryData } = await supabase
+                        .from('inventory')
+                        .select(`
+                            room_id,
+                            solvent_id,
+                            rooms ( id, name ),
+                            solvents ( id, name )
+                        `)
+                        .eq('id', lastLog.inventory_id)
+                        .single();
+
+                    if (inventoryData && inventoryData.rooms && inventoryData.solvents) {
+                        // Cast to any to handle slightly different joined types (array vs object) 
+                        // though .single() on relations usually returns object if 1:1 or N:1
+                        const r: any = inventoryData.rooms;
+                        const s: any = inventoryData.solvents;
+
+                        setSelectedRoom({ id: r.id, name: r.name });
+                        setRoomQuery(r.name);
+
+                        setSelectedSolvent({ id: s.id, name: s.name });
+                        setSolventQuery(s.name);
+                    }
+                }
             }
         };
         fetchData();
