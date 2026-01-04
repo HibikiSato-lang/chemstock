@@ -7,7 +7,7 @@ import { ArrowLeft, Beaker, Check, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ActionScreen() {
     return (
@@ -24,6 +24,7 @@ function ActionScreenContent() {
     const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const supabase = createClient();
 
     // Determine mode from URL path param [type]
     // params.type can be 'add' or 'use'
@@ -108,12 +109,15 @@ function ActionScreenContent() {
         }
 
         // Insert Log
+        const { data: { user } } = await supabase.auth.getUser();
+        const userName = user?.email || "担当者";
+
         const { error: logError } = await supabase
             .from('inventory_logs')
             .insert({
                 inventory_id: inventoryId,
                 change_amount: changeAmount,
-                user_name: "担当者" // placeholder for now
+                user_name: userName // Use verified email or fallback
             });
 
         if (logError) {
