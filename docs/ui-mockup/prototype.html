@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChemStock 操作プロトタイプ（クリックで画面遷移）</title>
+<style>
+  :root{
+    --mint:#d5ebe1;--mint-deep:#c3e0d3;--teal:#2e6b58;--teal-dark:#24523f;
+    --line:#c6ddd2;--line-strong:#9dbfb0;--text:#22332c;--muted:#5f7a6f;--link:#2b6cb0;
+    --warn-bg:#fdf2e3;--warn:#b45309;--new:#fb8c00;--dialog:#f59e0b;--dx:#7c3aed;--legacy:#90a4ae;--danger:#c0392b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    background:#e7ede9;color:var(--text);min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 12px 40px;}
+
+  /* ---- 上部ツールバー ---- */
+  .toolbar{width:100%;max-width:760px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;
+    background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;}
+  .toolbar h1{font-size:16px;color:var(--teal-dark);}
+  .toolbar .sub{font-size:11px;color:var(--muted);width:100%;line-height:1.6;}
+  .toolbar label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  .toolbar select{font-size:12px;padding:5px 8px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;color:var(--text);}
+  .toolbar a{font-size:12px;color:var(--link);}
+
+  /* ---- 端末 ---- */
+  .phone-proto{
+    width:360px;height:720px;background:var(--mint);
+    border:9px solid #1f2a25;border-radius:36px;overflow:hidden;
+    display:flex;flex-direction:column;box-shadow:0 12px 34px rgba(0,0,0,.24);position:relative;}
+  .notch{height:22px;background:#1f2a25;flex-shrink:0;position:relative;}
+  .notch::after{content:"";position:absolute;left:50%;top:6px;transform:translateX(-50%);
+    width:110px;height:10px;background:#000;border-radius:6px;}
+  .viewport{flex:1;position:relative;overflow:hidden;background:var(--mint);}
+  .screen-page{position:absolute;inset:0;overflow-y:auto;padding:16px 14px 10px;
+    display:none;flex-direction:column;gap:14px;animation:fade .18s ease;}
+  .screen-page.on{display:flex;}
+  @keyframes fade{from{opacity:0;transform:translateX(6px);}to{opacity:1;transform:none;}}
+  /* 種別で端末左に色帯 */
+  .viewport::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;z-index:8;pointer-events:none;background:transparent;transition:background .15s;}
+  .viewport[data-cat="new"]::before{background:var(--new);}
+  .viewport[data-cat="dialog"]::before{background:var(--dialog);}
+  .viewport[data-cat="dx"]::before{background:var(--dx);}
+  .viewport[data-cat="legacy"]::before{background:var(--legacy);}
+
+  /* ---- 共通パーツ ---- */
+  .hdr{display:flex;align-items:center;justify-content:space-between;}
+  .hdr .ttl{font-size:18px;font-weight:700;}
+  .hdr .icons{display:flex;gap:10px;font-size:15px;align-items:center;}
+  .txtlink{font-size:13px;color:var(--link);text-decoration:underline;}
+  .back{font-size:13px;color:var(--link);text-decoration:underline;background:none;border:none;cursor:pointer;text-align:left;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:12px;}
+  .btn{display:inline-block;background:var(--teal);color:#fff;border:none;border-radius:8px;
+    padding:16px 20px;font-size:16px;text-align:center;cursor:pointer;font-family:inherit;}
+  .btn.small{padding:10px 16px;font-size:14px;}
+  .btn.ghost{background:#fff;color:var(--teal);border:1px solid var(--teal);}
+  .btn.danger{background:var(--danger);color:#fff;}
+  .btn.block{display:block;width:100%;}
+  .bigcard{background:var(--teal);color:#fff;border:none;border-radius:8px;padding:22px;width:100%;
+    text-align:center;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:13px;}
+  th,td{border:1px solid var(--line);padding:9px 8px;text-align:left;}
+  th{background:#eef6f2;font-weight:600;}
+  tr.hl td{background:#fff6ec;}
+  tr.tap{cursor:pointer;}
+  tr.tap:hover td{background:#eef6f2;}
+  .select{background:#fff;border:1px solid var(--line-strong);border-radius:6px;
+    padding:12px 12px;font-size:14px;color:var(--text);display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
+  .select::after{content:"▼";font-size:9px;color:var(--muted);}
+  .label{font-size:14px;font-weight:600;color:var(--teal-dark);}
+  .req{color:var(--danger);font-size:10px;font-weight:700;margin-left:3px;}
+  .field{background:#fff;border:1px solid var(--line-strong);border-radius:6px;padding:14px 12px;font-size:14px;color:var(--muted);}
+  .field.filled{color:var(--text);}
+  .note{font-size:12px;color:var(--muted);line-height:1.6;}
+  .list-item{display:flex;justify-content:space-between;align-items:center;padding:16px 12px;font-size:15px;cursor:pointer;}
+  .list-item+.list-item{border-top:1px solid var(--line);}
+  .list-item:hover{background:#eef6f2;}
+  .list-item .chev{color:var(--muted);}
+  .banner{background:var(--warn-bg);border:1px solid #f0c98d;border-radius:6px;padding:8px 10px;cursor:pointer;}
+  .banner:hover{background:#fbe9cf;}
+  .banner .b-ttl{font-size:14px;font-weight:700;color:var(--warn);margin-bottom:4px;}
+  .banner .b-row{font-size:14px;color:var(--text);padding:3px 0;}
+  .radio-list{display:flex;flex-direction:column;gap:8px;font-size:14px;}
+  .radio-list span{cursor:pointer;}
+  .radio-list span::before{content:"◯ ";color:var(--muted);}
+  .radio-list span.sel::before{content:"◉ ";color:var(--teal);}
+  .seg{display:flex;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden;font-size:13px;}
+  .seg span{flex:1;text-align:center;padding:10px 4px;color:var(--muted);background:#fff;cursor:pointer;}
+  .seg span.on{background:var(--teal);color:#fff;font-weight:700;}
+  .pill{display:inline-block;font-size:10px;border-radius:10px;padding:1px 8px;font-weight:700;}
+  .pill.warn{background:#fff3e0;color:var(--warn);border:1px solid #f0c98d;}
+  .pill.dx{background:#ede7f6;color:var(--dx);border:1px solid var(--dx);}
+  .badge-new{display:inline-block;background:#fff3e0;color:var(--new);border:1px solid var(--new);
+    border-radius:3px;font-size:10px;padding:0 4px;margin-left:4px;vertical-align:1px;}
+  .center{text-align:center;}
+  .spacer{flex:1;min-height:6px;}
+  .done-ic{font-size:44px;text-align:center;color:var(--teal);}
+  /* 既存アプリ(lucide Home)と統一したホームに戻るアイコン */
+  .home-ic{width:22px;height:22px;color:#00695C;display:inline-block;vertical-align:middle;}
+  .home-ic-btn{cursor:pointer;display:inline-flex;align-items:center;padding:2px;border-radius:50%;}
+  .home-ic-btn:hover{background:rgba(0,0,0,.05);}
+  .steprow{display:flex;flex-direction:column;gap:8px;}
+  /* 目立つ導線ボタン（履歴など） */
+  .entry-btn{display:flex;justify-content:space-between;align-items:center;width:100%;
+    background:#eaf4ef;border:2px solid var(--teal);color:var(--teal-dark);border-radius:8px;
+    padding:14px 14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;gap:10px;}
+  .entry-btn:hover{background:#dcebe3;}
+  .entry-btn .lead{display:inline-flex;align-items:center;gap:8px;}
+  .entry-btn .lead .ic{font-size:18px;}
+  .entry-btn .chev{color:var(--teal);font-weight:700;}
+  /* 戻るリンクの当たり判定を拡大 */
+  .back{display:inline-flex;align-items:center;min-height:40px;padding:8px 4px;}
+  /* 大きな選択肢リスト（溶媒選択など） */
+  .opt-list{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .opt{display:flex;align-items:center;gap:12px;min-height:52px;padding:12px 14px;font-size:15px;cursor:pointer;}
+  .opt+.opt{border-top:1px solid var(--line);}
+  .opt::before{content:"";width:20px;height:20px;border:2px solid var(--line-strong);border-radius:50%;flex-shrink:0;box-sizing:border-box;}
+  .opt:hover{background:#f2f8f5;}
+  .opt.sel{background:#eef6f2;font-weight:700;color:var(--teal-dark);}
+  .opt.sel::before{border-color:var(--teal);background:var(--teal);box-shadow:inset 0 0 0 3px #fff;}
+  /* セグメント（区分などの二択トグル）大きめ */
+  .seg.lg span{padding:14px 4px;font-size:15px;font-weight:600;}
+  /* 数量ステッパー */
+  .stepper{display:flex;align-items:center;justify-content:center;gap:12px;}
+  .stepper .step{width:56px;height:50px;border:2px solid var(--teal);background:#fff;color:var(--teal);
+    border-radius:10px;font-size:24px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;}
+  .stepper .step:hover{background:#eef6f2;}
+  .stepper .num{font-size:26px;font-weight:800;min-width:64px;text-align:center;}
+  .stepper .unit{min-width:66px;justify-content:center;}
+  /* 履歴・下限などのカード行（大きなアクション） */
+  .row-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px;}
+  .row-card+.row-card{margin-top:8px;}
+  .row-card .info{display:flex;flex-direction:column;gap:3px;font-size:15px;}
+  .row-card .info .sub{font-size:12px;color:var(--muted);}
+  .row-card .amt{font-weight:700;}
+  .row-card .acts{display:flex;gap:8px;margin-top:10px;}
+  .row-card .acts .btn{flex:1;padding:11px 8px;font-size:14px;}
+  /* タップ可能な一覧行（在庫一覧など） */
+  .nav-list{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .nav-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:54px;padding:12px 14px;font-size:15px;cursor:pointer;}
+  .nav-row+.nav-row{border-top:1px solid var(--line);}
+  .nav-row:hover{background:#f2f8f5;}
+  .nav-row.warn{background:#fff6ec;}
+  .nav-row .val{display:flex;align-items:center;gap:8px;font-weight:600;}
+  .nav-row .chev{color:var(--muted);}
+  /* 主ボタンの固定フッター（タブバー直上・全画面で位置一定） */
+  .cta-bar{position:sticky;bottom:0;margin-top:auto;display:flex;flex-direction:column;gap:8px;
+    padding-top:12px;padding-bottom:2px;background:var(--mint);box-shadow:0 -8px 12px -8px rgba(0,0,0,.14);}
+  .cta-row{display:flex;gap:10px;}
+  .cta-row .btn{flex:1;}
+
+  /* interactive affordance */
+  [data-goto],[data-open]{cursor:pointer;}
+  [tabindex]:focus-visible,button:focus-visible,.tap:focus-visible{outline:2px solid var(--teal);outline-offset:2px;border-radius:4px;}
+
+  /* ---- overlay dialog ---- */
+  .overlay{position:absolute;inset:0;background:rgba(20,40,32,.4);
+    display:none;align-items:center;justify-content:center;padding:16px;z-index:20;}
+  .overlay.open{display:flex;animation:fade .15s ease;}
+  .modal{background:#fff;border-radius:10px;padding:16px;width:100%;
+    box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:10px;}
+  .modal .m-ttl{font-size:14px;font-weight:700;color:var(--danger);}
+  .modal .m-ttl.neutral{color:var(--teal-dark);}
+  .modal .target{background:#f6faf8;border:1px solid var(--line);border-radius:6px;padding:9px 10px;font-size:12px;}
+  .modal .m-actions{display:flex;gap:8px;margin-top:2px;}
+  .modal .m-actions .btn{flex:1;}
+
+  /* ---- tab bar ---- */
+  .tabbar{display:flex;background:#fff;border-top:1px solid var(--line-strong);height:58px;flex-shrink:0;}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:9px;color:#8a9a92;background:none;border:none;cursor:pointer;font-family:inherit;}
+  .tab .ic{font-size:16px;line-height:1;filter:grayscale(1);opacity:.55;}
+  .tab.active{color:var(--teal);font-weight:700;}
+  .tab.active .ic{filter:none;opacity:1;}
+  .tab.active::before{content:"";display:block;width:26px;height:3px;border-radius:2px;background:var(--teal);margin-bottom:1px;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--teal-dark);color:#fff;font-size:12px;padding:9px 16px;border-radius:20px;
+    opacity:0;pointer-events:none;transition:.25s;z-index:50;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>ChemStock 操作プロトタイプ</h1>
+  <label>画面へジャンプ
+    <select id="jump"></select>
+  </label>
+  <a href="画面遷移マップ.html">▤ 全画面マップを見る</a>
+  <p class="sub">緑ボタン・カード・タブ・行・「← 戻る」をタップすると実際に画面が切り替わります。ダイアログ（取消／下限変更／利用停止）も開閉可能。キーボード操作（Tab＋Enter/Space）にも対応。端末左の色帯＝画面種別（橙=新規／黄=ダイアログ／紫=DXコア／灰=レガシー）。</p>
+</div>
+
+<div class="phone-proto">
+  <div class="notch"></div>
+  <div class="viewport" id="vp">
+
+    <!-- ===== ① ログイン ===== -->
+    <section class="screen-page" id="login">
+      <div class="center" style="font-size:24px;font-weight:800;color:var(--teal-dark);">ChemStock</div>
+      <div class="center note">研究室単位の共有アカウントでログイン</div>
+      <div style="height:8px"></div>
+      <div><span class="label">研究室 / 管理者</span><div class="select" style="width:100%;margin-top:4px;">溶媒庫管理者</div></div>
+      <div><span class="label">パスワード</span><div class="field" style="margin-top:4px;">••••••••</div></div>
+      <p class="note center">※個人ログインではない。操作者名は各操作時に手入力。</p>
+      <div class="cta-bar"><button class="btn block" data-goto="home">ログイン</button></div>
+    </section>
+
+    <!-- ===== ホーム ===== -->
+    <section class="screen-page" id="home">
+      <div class="hdr"><span class="ttl">ホーム</span><button class="txtlink" data-goto="login">ログアウト ⇥</button></div>
+      <div class="banner" data-goto="detail">
+        <div class="b-ttl">⚠ 残量・欠品の見通し（自研究室）</div>
+        <div class="b-row">アセトン：残量 2.0 L（11/18頃 下限割れ予測） ＞</div>
+        <div class="b-row">トルエン：下限割れ中（1.5 L） ＞</div>
+      </div>
+      <div style="height:100px"></div>
+      <button class="bigcard" data-goto="adjust">溶媒の登録・使用</button>
+      <div style="height:8px"></div>
+      <button class="bigcard" data-goto="search">溶媒の在庫閲覧</button>
+      <div class="spacer" style="flex:1.4"></div>
+      <p class="note center">※既存2カードは変更なし。バナー行タップで詳細情報へ（通知・メールは発行しない）。</p>
+    </section>
+
+    <!-- ===== 残量調整 ===== -->
+    <section class="screen-page" id="adjust">
+      <div class="hdr"><span class="ttl">残量調整</span></div>
+      <button class="entry-btn" data-goto="history"><span class="lead"><span class="ic">🕘</span>入出庫履歴を見る</span><span class="chev">＞</span></button>
+      <div class="card" style="font-size:14px;">研究室：<b>山田研</b>　<small style="color:var(--muted);">ログインアカウントから自動判定（選択不要）</small></div>
+      <span class="label">溶媒を選択</span>
+      <div class="opt-list">
+        <div class="opt sel">メタノール</div>
+        <div class="opt">エタノール</div>
+        <div class="opt">アセトン</div>
+      </div>
+      <p class="note">※上部の「入出庫履歴を見る」から履歴一覧へ（★新規。取消・編集もここから）。</p>
+      <div class="cta-bar"><button class="btn block" data-goto="actionInput">確認画面</button></div>
+    </section>
+
+    <!-- ===== 数量入力 ===== -->
+    <section class="screen-page" id="actionInput">
+      <div class="hdr"><span class="ttl">数量入力</span></div>
+      <button class="back" data-goto="adjust">← 残量調整に戻る</button>
+      <div class="card" style="font-size:12px;">対象：<b>山田研／メタノール</b></div>
+      <div><span class="label">区分</span>
+        <div class="seg lg" style="margin-top:6px;"><span class="on">追加する</span><span>使用する</span></div></div>
+      <div><span class="label">数量</span>
+        <div class="card" style="margin-top:6px;"><div class="stepper"><button class="step">−</button><span class="num">3.5</span><button class="step">＋</button><span class="select unit">L</span></div></div>
+        <p class="note" style="margin-top:4px;">※単位は L／ガロン／斗缶 から選択。記録は基準単位（base_unit）に換算して保存。</p></div>
+      <div><span class="label">使用者名<span class="req">必須</span></span><div class="field" style="margin-top:3px;">氏名を入力（過去入力をサジェスト）</div></div>
+      <div class="cta-bar"><button class="btn block" data-goto="actionConfirm">確認へ</button></div>
+    </section>
+
+    <!-- ===== 確認・実行 ===== -->
+    <section class="screen-page" id="actionConfirm">
+      <div class="hdr"><span class="ttl">確認</span></div>
+      <div class="card" style="font-size:12px;line-height:2;">研究室：<b>山田研</b><br>溶媒：<b>メタノール</b><br>区分：<b>追加</b><br>変量：<b>＋3.5 L</b><br>使用者：<b>学生A</b></div>
+      <p class="note">この内容で在庫を更新します。よろしいですか？</p>
+      <div class="cta-bar"><div class="cta-row"><button class="btn ghost block" data-goto="actionInput">修正する</button><button class="btn block" data-goto="complete">実行する</button></div></div>
+    </section>
+
+    <!-- ===== 完了 ===== -->
+    <section class="screen-page" id="complete">
+      <div class="hdr"><span class="ttl">完了</span></div>
+      <div style="height:16px"></div>
+      <div class="done-ic">✓</div>
+      <div class="center" style="font-weight:700;font-size:15px;">登録しました</div>
+      <div class="card center" style="font-size:12px;">山田研／メタノール<br><b>＋3.5 L</b>（現在 36.0 L）</div>
+      <div class="cta-bar">
+        <button class="btn block" data-goto="home">ホームに戻る</button>
+        <button class="btn ghost block" data-goto="adjust">続けて操作する</button>
+      </div>
+    </section>
+
+    <!-- ===== 入出庫履歴一覧（＋取消ダイアログ） ===== -->
+    <section class="screen-page" id="history" data-cat="new">
+      <div class="hdr"><span class="ttl">入出庫履歴</span></div>
+      <button class="back" data-goto="adjust">← 残量調整に戻る</button>
+      <div><span class="select">溶媒：すべて</span></div>
+      <div class="row-card">
+        <div class="info"><span><b>10/9</b>　メタノール　<span class="amt">＋3.0 L</span></span><span class="sub">使用者：学生A</span></div>
+        <div class="acts"><button class="btn ghost" data-goto="edit">編集</button><button class="btn danger" data-open="ov-cancel">取消</button></div>
+      </div>
+      <div class="row-card">
+        <div class="info"><span><b>10/7</b>　アセトン　<span class="amt">−1.0 L</span></span><span class="sub">使用者：学生B</span></div>
+        <div class="acts"><button class="btn ghost" data-goto="edit">編集</button><button class="btn danger" data-open="ov-cancel">取消</button></div>
+      </div>
+      <div class="row-card">
+        <div class="info"><span><b>10/5</b>　エタノール　<span class="amt">−2.0 L</span></span><span class="sub">使用者：学生A</span></div>
+        <div class="acts"><button class="btn ghost" data-goto="edit">編集</button><button class="btn danger" data-open="ov-cancel">取消</button></div>
+      </div>
+      <p class="note">※自研究室の履歴のみ表示（管理者は全研究室）。各行の「編集／取消」から実操作者名・理由を入力。</p>
+      <div class="spacer"></div>
+      <div class="overlay" id="ov-cancel">
+        <div class="modal">
+          <div class="m-ttl">この記録を取り消しますか？</div>
+          <div class="target"><b>10/7　アセトン　−1.0 L</b><br>使用者：学生B ／ 山田研</div>
+          <div><span class="label">実操作者名<span class="req">必須</span></span><div class="field" style="margin-top:3px;">氏名を入力</div></div>
+          <div><span class="label">取消理由<span class="req">必須</span></span><div class="field" style="margin-top:3px;">例）入力ミスのため</div></div>
+          <p class="note">※物理削除しない。status=取消＋在庫再計算＋operation_audits。</p>
+          <div class="m-actions"><button class="btn ghost" data-close>キャンセル</button><button class="btn danger" data-goto="recalc">取り消す</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 記録編集フォーム ===== -->
+    <section class="screen-page" id="edit" data-cat="new">
+      <div class="hdr"><span class="ttl">記録の編集</span></div>
+      <button class="back" data-goto="history">← 入出庫履歴に戻る</button>
+      <div class="card" style="font-size:12px;">対象：<b>10/9　メタノール　＋3.0 L</b>（学生A）</div>
+      <div><span class="label">変量</span>
+        <div class="card" style="margin-top:6px;"><div class="stepper"><button class="step">−</button><span class="num">3.0</span><button class="step">＋</button><span class="select unit">L</span></div></div></div>
+      <div><span class="label">使用者名</span><div class="field filled" style="margin-top:3px;">学生A</div></div>
+      <div><span class="label">実操作者名<span class="req">必須</span></span><div class="field" style="margin-top:3px;">氏名を入力</div></div>
+      <div><span class="label">変更理由<span class="req">必須</span></span><div class="field" style="margin-top:3px;">例）数量の入力誤り訂正</div></div>
+      <div class="cta-bar"><button class="btn block" data-goto="recalc">確認して保存</button></div>
+    </section>
+
+    <!-- ===== 在庫再計算と監査記録 ===== -->
+    <section class="screen-page" id="recalc" data-cat="new">
+      <div class="hdr"><span class="ttl">反映しました</span></div>
+      <div style="height:12px"></div>
+      <div class="done-ic">✓</div>
+      <div class="center" style="font-weight:700;font-size:14px;">取消／編集を反映しました</div>
+      <div class="card" style="font-size:12px;line-height:1.9;">在庫を再計算：<b>アセトン +1.0 L</b><br><code>inventory_logs.status = 取消</code><br><code>operation_audits</code> に before/after＋理由を記録</div>
+      <p class="note">※実操作者名は手入力必須。監査ログは物理削除しない。</p>
+      <div class="cta-bar"><button class="btn ghost block" data-goto="history">入出庫履歴に戻る</button></div>
+    </section>
+
+    <!-- ===== 在庫検索 ===== -->
+    <section class="screen-page" id="search">
+      <div class="hdr"><span class="ttl">在庫検索</span></div>
+      <div class="card" style="font-size:14px;">研究室：<b>山田研</b>　<small style="color:var(--muted);">ログインアカウントから自動。管理者は全研究室を選択可</small></div>
+      <span class="label">溶媒で絞り込み</span><div class="select" style="width:100%;">すべての溶媒</div>
+      <p class="note">※プルダウンで絞り込んで一覧へ。<button class="back" data-goto="roomid">（レガシー: 部屋別在庫を開く）</button></p>
+      <div class="cta-bar"><button class="btn block" data-goto="list">在庫状況を表示</button></div>
+    </section>
+
+    <!-- ===== 在庫一覧 ===== -->
+    <section class="screen-page" id="list">
+      <div class="hdr"><span class="ttl">在庫一覧</span></div>
+      <button class="back" data-goto="search">← 在庫検索に戻る</button>
+      <div class="nav-list">
+        <div class="nav-row" data-goto="detail"><span>メタノール</span><span class="val">36.0 L <span class="chev">＞</span></span></div>
+        <div class="nav-row warn" data-goto="detail"><span>アセトン</span><span class="val"><span class="pill warn">下限割れ</span>2.0 L <span class="chev">＞</span></span></div>
+        <div class="nav-row" data-goto="detail"><span>エタノール</span><span class="val">18.5 L <span class="chev">＞</span></span></div>
+        <div class="nav-row warn" data-goto="detail"><span>トルエン</span><span class="val"><span class="pill warn">下限割れ</span>1.5 L <span class="chev">＞</span></span></div>
+      </div>
+      <p class="note">※自研究室の在庫のみ表示（管理者は全研究室）。行タップで詳細へ。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 詳細情報（＋下限変更ダイアログ） ===== -->
+    <section class="screen-page" id="detail">
+      <div class="hdr"><span class="ttl">詳細情報</span></div>
+      <button class="back" data-goto="list">← 在庫一覧に戻る</button>
+      <div class="center" style="font-weight:700;font-size:14px;">山田研<br>メタノール</div>
+      <table>
+        <tr><td>CAS番号</td><td>67-56-1</td></tr>
+        <tr><td>分子式</td><td>CH₃OH</td></tr>
+      </table>
+      <div class="row-card">
+        <div class="info" style="flex-direction:row;justify-content:space-between;align-items:center;">
+          <span><b>下限値</b> <span class="badge-new">★新規</span></span><span class="amt">5.0 L</span></div>
+        <div class="acts"><button class="btn ghost" data-open="ov-lowset">⚙ 下限値を変更</button></div>
+      </div>
+      <table>
+        <tr><th>日付</th><th>変量</th><th>使用者</th></tr>
+        <tr><td>10/9</td><td>＋3.0 L</td><td>学生A</td></tr>
+      </table>
+      <p class="note">※「⚙ 変更」は下限値ダイアログ（画面遷移なし）。</p>
+      <div class="spacer"></div>
+      <div class="overlay" id="ov-lowset">
+        <div class="modal">
+          <div class="m-ttl neutral">在庫下限値を変更</div>
+          <div class="target">メタノール（山田研）<br>現在の下限：<b>5.0 L</b></div>
+          <div><span class="label">新しい下限値<span class="req">必須</span></span><div class="field filled" style="margin-top:3px;">8.0 L</div></div>
+          <p class="note">※low_stock_threshold を更新し監査記録。下回ると通知対象。</p>
+          <div class="m-actions"><button class="btn ghost" data-close>キャンセル</button><button class="btn" data-close data-toast="下限値を 8.0 L に更新しました">保存</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 部屋別在庫（レガシー） ===== -->
+    <section class="screen-page" id="roomid" data-cat="legacy">
+      <div class="hdr"><span class="ttl">部屋別在庫</span></div>
+      <button class="back" data-goto="search">← 在庫検索に戻る</button>
+      <div class="card" style="font-size:11px;color:var(--muted);">※本線からのリンクなし。直接URL用の旧画面（レガシー）。</div>
+      <table><tr><th>溶媒</th><th>残量</th></tr><tr><td>メタノール</td><td>36.0 L</td></tr><tr><td>アセトン</td><td>2.0 L</td></tr></table>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 残量推移グラフ ===== -->
+    <section class="screen-page" id="graph" data-cat="new">
+      <div class="hdr"><span class="ttl">残量推移グラフ</span></div>
+      <div><span class="select">メタノール</span> <span class="select">1ヶ月</span></div>
+      <div class="card">
+        <svg viewBox="0 0 260 150" width="100%" height="150">
+          <line x1="30" y1="10" x2="30" y2="125" stroke="#9dbfb0"/><line x1="30" y1="125" x2="250" y2="125" stroke="#9dbfb0"/>
+          <text x="6" y="30" font-size="9" fill="#5f7a6f">50L</text><text x="6" y="120" font-size="9" fill="#5f7a6f">10L</text>
+          <line x1="30" y1="103" x2="250" y2="103" stroke="#b45309" stroke-dasharray="4 3"/><text x="196" y="99" font-size="8" fill="#b45309">下限 5.0 L</text>
+          <polyline points="30,25 80,40 120,42 160,70 200,72 250,88" fill="none" stroke="#2e6b58" stroke-width="2.5"/>
+        </svg>
+      </div>
+      <div class="card center" style="font-size:13px;">現在残量 <b>32.5 L</b>　／　下限 5.0 L</div>
+      <div class="cta-bar"><button class="btn ghost block" data-goto="forecast">欠品予測を表示 ▸</button></div>
+    </section>
+
+    <!-- ===== 欠品予測（DXコア） ===== -->
+    <section class="screen-page" id="forecast" data-cat="dx">
+      <div class="hdr"><span class="ttl">残量推移＋予測</span></div>
+      <button class="back" data-goto="graph">← グラフに戻る</button>
+      <div><span class="select">メタノール</span> <span class="pill dx">欠品予測 ON</span></div>
+      <div class="card">
+        <svg viewBox="0 0 260 150" width="100%" height="150">
+          <line x1="30" y1="10" x2="30" y2="125" stroke="#9dbfb0"/><line x1="30" y1="125" x2="250" y2="125" stroke="#9dbfb0"/>
+          <line x1="30" y1="118" x2="250" y2="118" stroke="#c0392b" stroke-dasharray="4 3"/><text x="196" y="114" font-size="8" fill="#c0392b">欠品ライン</text>
+          <polyline points="30,25 80,40 120,42 160,70 200,72 250,88" fill="none" stroke="#2e6b58" stroke-width="2.5"/>
+          <polyline points="250,88 300,118" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="5 3"/><circle cx="250" cy="88" r="3" fill="#7c3aed"/>
+        </svg>
+      </div>
+      <div class="card center" style="font-size:13px;">予測欠品日 <b style="color:var(--dx)">11/18頃</b><br><span class="note">直近の使用ペースから外挿</span></div>
+      <p class="note">※DXコア機能。欠品予測線と予測日を重ねて表示。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 管理メニュー ===== -->
+    <section class="screen-page" id="manage" data-cat="new">
+      <div class="hdr"><span class="ttl">管理</span></div>
+      <div class="card" style="padding:0;">
+        <div class="list-item" data-goto="types"><span>🧪 溶媒種類管理</span><span class="chev">＞</span></div>
+        <div class="list-item" data-goto="admin"><span>🛡 管理者画面 <span class="badge-new">管理者のみ</span></span><span class="chev">＞</span></div>
+      </div>
+      <p class="note">※研究室ユーザーには「溶媒種類管理」のみ表示。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 溶媒種類管理（＋利用停止ダイアログ） ===== -->
+    <section class="screen-page" id="types" data-cat="new">
+      <div class="hdr"><span class="ttl">溶媒種類管理</span></div>
+      <button class="back" data-goto="manage">← 管理に戻る</button>
+      <div class="nav-list">
+        <div class="nav-row"><span>メタノール<br><span class="sub" style="font-size:12px;color:var(--muted);">CAS 67-56-1</span></span><button class="btn small ghost" data-open="ov-stop">利用停止</button></div>
+        <div class="nav-row"><span>エタノール<br><span class="sub" style="font-size:12px;color:var(--muted);">CAS 64-17-5</span></span><button class="btn small ghost" data-open="ov-stop">利用停止</button></div>
+        <div class="nav-row"><span>アセトン<br><span class="sub" style="font-size:12px;color:var(--muted);">CAS 67-64-1</span></span><button class="btn small ghost" data-open="ov-stop">利用停止</button></div>
+      </div>
+      <p class="note">※追加は既存フォーム同形式→確認→完了。利用停止は確認ダイアログ。</p>
+      <div class="cta-bar"><button class="btn block" data-goto="typeAdd">＋ 溶媒を追加</button></div>
+      <div class="overlay" id="ov-stop">
+        <div class="modal">
+          <div class="m-ttl">この溶媒を利用停止しますか？</div>
+          <div class="target"><b>アセトン</b>（CAS 67-64-1）</div>
+          <div><span class="label">停止理由<span class="req">必須</span></span><div class="field" style="margin-top:3px;">例）取扱い中止のため</div></div>
+          <p class="note">※物理削除しない。is_active=false＋operation_audits。在庫履歴は保持。</p>
+          <div class="m-actions"><button class="btn ghost" data-close>キャンセル</button><button class="btn danger" data-close data-toast="アセトンを利用停止にしました">利用停止</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 溶媒追加フォーム ===== -->
+    <section class="screen-page" id="typeAdd" data-cat="new">
+      <div class="hdr"><span class="ttl">溶媒を追加</span></div>
+      <button class="back" data-goto="types">← 溶媒種類管理に戻る</button>
+      <div><span class="label">溶媒名<span class="req">必須</span></span><div class="field" style="margin-top:3px;">例）ヘキサン</div></div>
+      <div><span class="label">CAS番号<span class="req">必須</span></span><div class="field" style="margin-top:3px;">例）110-54-3</div></div>
+      <div class="card" style="font-size:11px;color:var(--muted);">▽ 任意項目（分子式・分子量・指定数量）を開く</div>
+      <p class="note">※必須のみ表示・任意は折りたたみ。登録で一覧へ戻る。</p>
+      <div class="cta-bar"><button class="btn block" data-goto="types" data-toast="溶媒を追加しました">確認して登録</button></div>
+    </section>
+
+    <!-- ===== 管理者画面 ===== -->
+    <section class="screen-page" id="admin" data-cat="new">
+      <div class="hdr"><span class="ttl">管理者画面</span></div>
+      <button class="back" data-goto="manage">← 管理に戻る</button>
+      <div class="card" style="padding:0;">
+        <div class="list-item" data-goto="notif"><span>🔔 通知一覧　<small style="color:#b45309;">未確認 2</small></span><span class="chev">＞</span></div>
+        <div class="list-item" data-goto="analysis"><span>📊 利用履歴分析</span><span class="chev">＞</span></div>
+        <div class="list-item" data-goto="master"><span>🧪 溶媒マスタ管理</span><span class="chev">＞</span></div>
+        <div class="list-item" data-goto="settings"><span>⚙️ 各種設定</span><span class="chev">＞</span></div>
+      </div>
+      <p class="note">※管理者ロールのみ。各項目へ分岐。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 通知一覧 ===== -->
+    <section class="screen-page" id="notif" data-cat="new">
+      <div class="hdr"><span class="ttl">通知一覧</span></div>
+      <button class="back" data-goto="admin">← 管理者画面に戻る</button>
+      <div class="seg"><span class="on">未確認 2</span><span>確認済</span><span>対応済</span></div>
+      <div class="card" style="padding:0;">
+        <div class="list-item"><span>⚠ アセトン 下限割れ (2.0 L)</span><span class="pill warn">残量</span></div>
+        <div class="list-item" data-goto="dq"><span>⚠ 溶媒庫 指定数量 1.02倍</span><span class="pill dx">指定数量超過</span></div>
+      </div>
+      <p class="note">※未確認／確認済／対応済で運用。指定数量行タップでモニターへ。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 利用履歴分析 ===== -->
+    <section class="screen-page" id="analysis" data-cat="new">
+      <div class="hdr"><span class="ttl">利用履歴分析</span></div>
+      <button class="back" data-goto="admin">← 管理者画面に戻る</button>
+      <div><span class="select">期間：3ヶ月</span></div>
+      <div class="card"><div class="label">使用量ランキング</div>
+        <table style="margin-top:6px;"><tr><th>溶媒</th><th>使用量</th></tr><tr><td>アセトン</td><td>24.0 L</td></tr><tr><td>メタノール</td><td>18.5 L</td></tr><tr><td>エタノール</td><td>12.0 L</td></tr></table></div>
+      <p class="note">※溶媒別・研究室別の使用傾向を集計。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 溶媒マスタ管理 ===== -->
+    <section class="screen-page" id="master" data-cat="new">
+      <div class="hdr"><span class="ttl">溶媒マスタ管理</span></div>
+      <button class="back" data-goto="admin">← 管理者画面に戻る</button>
+      <table><tr><th>溶媒</th><th>指定数量</th><th></th></tr><tr><td>メタノール</td><td>400 L</td><td>✎</td></tr><tr><td>アセトン</td><td>400 L</td><td>✎</td></tr><tr><td>トルエン</td><td>200 L</td><td>✎</td></tr></table>
+      <p class="note">※全体共通マスタ。指定数量は法令値。編集は監査記録。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 各種設定 ===== -->
+    <section class="screen-page" id="settings" data-cat="new">
+      <div class="hdr"><span class="ttl">各種設定</span></div>
+      <button class="back" data-goto="admin">← 管理者画面に戻る</button>
+      <div class="card" style="padding:0;">
+        <div class="list-item"><span>単位設定（表示・入力）</span><span>L / ガロン / 斗缶</span></div>
+        <div class="list-item"><span>警告比率 warning_ratio</span><span>0.8</span></div>
+        <div class="list-item" data-goto="dq"><span>指定数量モニター</span><span class="pill dx">DXコア</span></div>
+      </div>
+      <p class="note">※warning_ratio は独自の早期警告閾値（法令届出基準とは別）。</p>
+      <div class="spacer"></div>
+    </section>
+
+    <!-- ===== 指定数量モニター（DXコア） ===== -->
+    <section class="screen-page" id="dq" data-cat="dx">
+      <div class="hdr"><span class="ttl">指定数量モニター</span></div>
+      <button class="back" data-goto="settings">← 各種設定に戻る</button>
+      <div class="card center">
+        <div class="label">溶媒庫 合算倍率</div>
+        <div style="font-size:28px;font-weight:800;color:var(--dx);margin:4px 0;">1.02 <span style="font-size:13px;">倍</span></div>
+        <div style="height:10px;background:#eceff1;border-radius:6px;overflow:hidden;"><div style="width:85%;height:100%;background:var(--dx);"></div></div>
+        <div class="note" style="margin-top:4px;">0.8以上 → 接近表示（通知なし） / 1.0以上 → アプリ内通知</div>
+      </div>
+      <div class="card" style="font-size:11px;">Σ(amount ÷ designated_quantity)＝溶媒庫全体（全研究室）の在庫を合算</div>
+      <p class="note">※DXコア／将来対応。研究室ユーザー非表示。</p>
+      <div class="spacer"></div>
+    </section>
+
+  </div>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tab" data-flow="home" data-goto="home"><span class="ic">🏠</span>ホーム</button>
+    <button class="tab" data-flow="adjust" data-goto="adjust"><span class="ic">✏️</span>登録・使用</button>
+    <button class="tab" data-flow="search" data-goto="search"><span class="ic">🔍</span>在庫</button>
+    <button class="tab" data-flow="graph" data-goto="graph"><span class="ic">📈</span>グラフ</button>
+    <button class="tab" data-flow="manage" data-goto="manage"><span class="ic">⚙️</span>管理</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const FLOW = {
+    home:'home',
+    adjust:'adjust', actionInput:'adjust', actionConfirm:'adjust', complete:'adjust', history:'adjust', edit:'adjust', recalc:'adjust',
+    search:'search', list:'search', detail:'search', roomid:'search',
+    graph:'graph', forecast:'graph',
+    manage:'manage', types:'manage', typeAdd:'manage', admin:'manage', notif:'manage', analysis:'manage', master:'manage', settings:'manage', dq:'manage'
+  };
+  const LABELS = {
+    login:'ログイン', home:'ホーム', adjust:'残量調整', actionInput:'数量入力', actionConfirm:'確認・実行',
+    complete:'完了', history:'入出庫履歴一覧', edit:'記録編集フォーム', recalc:'在庫再計算と監査記録',
+    search:'在庫検索', list:'在庫一覧', detail:'詳細情報', roomid:'部屋別在庫(レガシー)',
+    graph:'残量推移グラフ', forecast:'欠品予測(DXコア)', manage:'管理メニュー', types:'溶媒種類管理',
+    typeAdd:'溶媒追加フォーム', admin:'管理者画面', notif:'通知一覧', analysis:'利用履歴分析',
+    master:'溶媒マスタ管理', settings:'各種設定', dq:'指定数量モニター(DXコア)'
+  };
+  const vp = document.getElementById('vp');
+  const tabbar = document.getElementById('tabbar');
+  const jump = document.getElementById('jump');
+  const toast = document.getElementById('toast');
+  let toastT;
+
+  Object.keys(LABELS).forEach(id=>{
+    const o=document.createElement('option'); o.value=id; o.textContent=LABELS[id]; jump.appendChild(o);
+  });
+
+  function show(id){
+    const el=document.getElementById(id); if(!el) return;
+    document.querySelectorAll('.screen-page').forEach(s=>s.classList.remove('on'));
+    document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));
+    el.classList.add('on');
+    el.scrollTop=0;
+    // 種別色帯
+    vp.dataset.cat = el.dataset.cat || '';
+    // タブバー：ログインは非表示
+    tabbar.style.display = (id==='login') ? 'none' : 'flex';
+    const flow=FLOW[id];
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.flow===flow));
+    jump.value = id;
+    location.hash = id;
+  }
+  function showToast(msg){
+    toast.textContent=msg; toast.classList.add('show');
+    clearTimeout(toastT); toastT=setTimeout(()=>toast.classList.remove('show'),1800);
+  }
+
+  document.addEventListener('click',e=>{
+    const g=e.target.closest('[data-goto]');
+    const o=e.target.closest('[data-open]');
+    const c=e.target.closest('[data-close]');
+    if(c){ const ov=c.closest('.overlay'); if(ov) ov.classList.remove('open');
+           if(c.dataset.toast) showToast(c.dataset.toast); if(!g) return; }
+    if(g){ if(g.dataset.toast) showToast(g.dataset.toast); show(g.dataset.goto); return; }
+    if(o){ const ov=document.getElementById(o.dataset.open); if(ov) ov.classList.add('open'); return; }
+  });
+  // クリックで閉じる（オーバーレイ背景）
+  document.querySelectorAll('.overlay').forEach(ov=>{
+    ov.addEventListener('click',e=>{ if(e.target===ov) ov.classList.remove('open'); });
+  });
+  // キーボード操作（button以外の[data-*]）
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===' '){
+      const t=e.target.closest('[data-goto],[data-open],[data-close]');
+      if(t && t.tagName!=='BUTTON'){ e.preventDefault(); t.click(); }
+    }
+  });
+  jump.addEventListener('change',()=>show(jump.value));
+
+  // フォーカス可能に（button以外の操作要素）
+  document.querySelectorAll('[data-goto]:not(button),[data-open]:not(button)').forEach(el=>{
+    if(!el.hasAttribute('tabindex')){ el.setAttribute('tabindex','0'); el.setAttribute('role','button'); }
+  });
+
+  // 初期表示（ハッシュ優先）
+  const start = (location.hash||'').replace('#','');
+  show(LABELS[start] ? start : 'login');
+</script>
+</body>
+</html>

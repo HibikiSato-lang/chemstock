@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChemStock 実装タスク一覧</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #20352d; background: #d5ebe1; }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.7; }
+    header { background: #2e6b58; color: #fff; padding: 2.5rem 1.5rem; }
+    header div, main { max-width: 860px; margin: auto; }
+    h1 { margin: 0; font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.35; }
+    header p { margin: .5rem 0 0; }
+    main { background: #fff; min-height: 100vh; padding: 2rem clamp(1.25rem, 4vw, 3rem) 4rem; }
+    h2 { color: #245a48; font-size: 1.3rem; margin: 2.2rem 0 .8rem; border-bottom: 2px solid #d5ebe1; padding-bottom: .35rem; }
+    p, ul { margin: .65rem 0; }
+    ul { list-style: none; padding: 0; }
+    li { margin: .5rem 0; padding-left: 1.7rem; position: relative; }
+    li::before { content: "□"; position: absolute; left: 0; color: #2e6b58; font-weight: bold; }
+    a { color: #245a48; }
+    .lead { background: #ecf6f1; border-left: 4px solid #2e6b58; padding: 1rem 1.2rem; }
+    .note { color: #4e655b; font-size: .93rem; }
+    @media print { :root { background: #fff; } header { background: #fff; color: #20352d; padding-bottom: 0; } main { padding-top: 1rem; } }
+  </style>
+</head>
+<body>
+  <header><div>
+    <h1>実装タスク一覧</h1>
+    <p>初回リリースに必要なチェックリスト</p>
+  </div></header>
+  <main>
+    <p class="lead">決めることはチームで合意し、環境やデータの準備は並行して進める。合意内容は<a href="開発前の合意・準備.md">開発前の合意・準備</a>に記録する。全体の進め方は<a href="開発準備・リリース計画.html">開発準備・リリース計画</a>を参照する。</p>
+
+    <h2>1. 決める（自分の案を作り、必要な人に確認する）</h2>
+    <ul>
+      <li>欠品予測を初回リリースに含める決定をチームに共有する。</li>
+      <li>アカウントの発行・停止と窓口担当者1名への個別受け渡しをチームに共有する。初回の通知はアプリを開いた時に確認する運用を管理者に伝える。</li>
+      <li>指定数量値は溶媒庫管理者、初期在庫は各研究室の窓口担当者が確認する方針を共有する。既存の仮の在庫・履歴を引き継がない決定と、11月末の現場確認・12月中旬の公開目標を共有し、具体的な日を確認する。</li>
+    </ul>
+    <p class="note">初回はアプリ内通知のみ。管理者はアプリを開いた時に確認・対応する。メール通知は初回後の追加候補。</p>
+
+    <h2>2. 準備する（実作業）</h2>
+    <ul>
+      <li>溶媒庫管理者に指定数量値を、各研究室の窓口担当者に初期在庫を確認してもらい、確認済み初期在庫の一覧を作る。</li>
+      <li>開発用と本番用の環境を分け、データ変更と動作確認の仕組みを用意する。</li>
+      <li>欠品予測に必要な在庫下限値を確認し、初回リリースの仕様を関連文書にそろえる。</li>
+    </ul>
+
+    <h2>3. 作る</h2>
+    <ul>
+      <li>ログインと権限を実装し、研究室は自室の在庫だけを見られるようにする。</li>
+      <li>在庫一覧・詳細、入庫・使用、履歴をつなぐ。操作者名を手入力し、在庫不足・二重登録を防ぐ。</li>
+      <li>履歴の取消・訂正を実装する。理由と変更前後を残し、記録を消さない。</li>
+      <li>溶媒庫全体の指定数量を合算し、管理者画面でいつでも見られるようにする。1.0倍以上で管理者向けアプリ内通知を作る。</li>
+      <li>現在庫と実績の残量推移を表示する。スマホの既存の画面構成で使えるようにする。</li>
+      <li>在庫下限値を設定できるようにし、履歴から下限到達の目安を計算して自室のホームとグラフに表示する。</li>
+    </ul>
+
+    <h2>4. 確かめて公開する</h2>
+    <ul>
+      <li>入出庫・取消・訂正後の在庫と履歴、他室へのアクセス制限、1.0倍での通知と重複防止を確認する。</li>
+      <li>欠品予測が自室だけに表示され、出庫履歴や下限値がない場合には予測日を出さないことを確認する。本番開始時は実績がないため予測日が表示されない。</li>
+      <li>各研究室の窓口担当者と溶媒庫管理者に、スマホで主要な操作を試してもらう。学生にも今後検証してもらう（時期は未定）。</li>
+      <li>バックアップ、確認済み初期在庫の登録、在庫量の照合、復元を事前に試す。</li>
+      <li>開発チームと溶媒庫管理者で公開してよいか確認してから本番へ反映し、ログイン・在庫・履歴・指定数量を再確認する。公開後の問い合わせ窓口として開発チームを案内する。</li>
+    </ul>
+
+    <p class="note">欠品予測は初回リリースに含める。利用分析やCSV出力は追加機能として別途計画する。詳細仕様は<a href="DXコア機能_要件定義.md">DXコア機能 要件定義</a>と<a href="API設計.html">API設計</a>を参照する。</p>
+  </main>
+</body>
+</html>

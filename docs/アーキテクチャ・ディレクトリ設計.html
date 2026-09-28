@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>ChemStock アーキテクチャ・ディレクトリ設計</title>
+  <style>
+    :root {
+      --mint: #d5ebe1;
+      --mint-soft: #eef7f3;
+      --green: #2e6b58;
+      --green-dark: #214f42;
+      --blue: #245f8f;
+      --amber: #9a650e;
+      --red: #a83a3a;
+      --ink: #1e2925;
+      --muted: #60706a;
+      --line: #d8e0dc;
+      --surface: #ffffff;
+      --code: #f4f7f5;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: #f7faf8;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+      font-size: 15px;
+      line-height: 1.75;
+      letter-spacing: 0;
+    }
+    a { color: var(--blue); text-underline-offset: 3px; }
+    a:hover { color: var(--green-dark); }
+    .skip-link {
+      position: absolute;
+      left: 12px;
+      top: -48px;
+      z-index: 10;
+      padding: 8px 12px;
+      background: var(--green-dark);
+      color: white;
+    }
+    .skip-link:focus { top: 12px; }
+    .document-header {
+      background: var(--mint);
+      border-bottom: 1px solid #bdd8cb;
+    }
+    .document-header__inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 32px 24px;
+    }
+    .document-kicker {
+      margin: 0 0 5px;
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .document-title {
+      margin: 0;
+      color: var(--green-dark);
+      font-size: clamp(25px, 4vw, 38px);
+      line-height: 1.25;
+    }
+    .document-subtitle { margin: 8px 0 0; color: #345b4e; }
+    .document-shell {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      gap: 32px;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 32px 96px;
+      align-items: start;
+    }
+    .toc-panel {
+      position: sticky;
+      top: 20px;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      padding: 16px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    .toc-title { margin: 0 0 10px; color: var(--green-dark); font-size: 13px; font-weight: 700; }
+    .toc-panel ul { margin: 0; padding-left: 18px; }
+    .toc-panel > ul { padding-left: 0; list-style: none; }
+    .toc-panel li { margin: 4px 0; line-height: 1.45; }
+    .toc-panel a { color: #40504a; text-decoration: none; font-size: 13px; }
+    .toc-panel a:hover { color: var(--green); text-decoration: underline; }
+    main {
+      min-width: 0;
+      padding: 34px clamp(20px, 4vw, 52px) 64px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    main > :first-child { margin-top: 0; }
+    h1, h2, h3, h4 { color: var(--green-dark); line-height: 1.4; }
+    h1 { margin: 0 0 24px; font-size: 29px; }
+    h2 {
+      margin: 52px 0 18px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--mint);
+      font-size: 23px;
+      scroll-margin-top: 20px;
+    }
+    h3 { margin: 34px 0 14px; font-size: 18px; scroll-margin-top: 20px; }
+    h4 { margin: 26px 0 10px; font-size: 16px; }
+    p { margin: 0 0 16px; }
+    ul, ol { padding-left: 24px; margin: 10px 0 18px; }
+    li { margin: 5px 0; }
+    strong { color: #183f34; }
+    table {
+      display: block;
+      width: 100%;
+      overflow-x: auto;
+      margin: 18px 0 28px;
+      border-collapse: collapse;
+      font-size: 13px;
+      white-space: normal;
+    }
+    thead { background: var(--mint-soft); }
+    th, td {
+      min-width: 112px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--green-dark); font-weight: 700; }
+    tr:nth-child(even) td { background: #fbfcfb; }
+    code {
+      padding: 2px 5px;
+      border: 1px solid #dce4e0;
+      border-radius: 4px;
+      background: var(--code);
+      color: #24483c;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.9em;
+    }
+    pre {
+      max-width: 100%;
+      overflow: auto;
+      margin: 16px 0 24px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--green);
+      border-radius: 6px;
+      background: var(--code);
+      line-height: 1.55;
+    }
+    pre code { padding: 0; border: 0; background: transparent; color: inherit; }
+    pre.mermaid { background: white; border-left-color: var(--blue); text-align: center; }
+    .decision, .warning, .note {
+      margin: 20px 0;
+      padding: 14px 18px;
+      border-left: 4px solid var(--green);
+      background: var(--mint-soft);
+    }
+    .warning { border-left-color: var(--amber); background: #fff9ed; }
+    .note { border-left-color: var(--blue); background: #f1f7fb; }
+    .label {
+      display: inline-block;
+      min-width: 54px;
+      margin-right: 6px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      background: var(--mint-soft);
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .label--avoid { background: #fff1ef; color: var(--red); }
+    @media (max-width: 920px) {
+      .document-header__inner { padding: 22px 18px 18px; }
+      .document-shell { display: block; padding: 16px 12px 64px; }
+      .toc-panel { position: static; max-height: none; margin-bottom: 16px; }
+      main { padding: 24px 16px 48px; }
+      h1 { font-size: 24px; }
+      h2 { margin-top: 40px; font-size: 21px; }
+      th, td { min-width: 130px; }
+    }
+    @media print {
+      body { background: white; font-size: 11px; }
+      .document-header { background: white; }
+      .document-shell { display: block; max-width: none; padding: 0; }
+      .toc-panel { display: none; }
+      main { border: 0; padding: 20px; }
+      h2, h3 { break-after: avoid; }
+      table, pre { break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#document-content">本文へ移動</a>
+  <header class="document-header">
+    <div class="document-header__inner">
+      <p class="document-kicker">ChemStock Design Documentation</p>
+      <p class="document-title">アーキテクチャ・ディレクトリ設計</p>
+      <p class="document-subtitle">モジュラーモノリスと軽量DDDによる、秋リリース時点の設計方針</p>
+    </div>
+  </header>
+
+  <div class="document-shell">
+    <aside class="toc-panel" aria-label="目次">
+      <p class="toc-title">目次</p>
+      <ul>
+        <li><a href="#decision">1. 採用する構成</a></li>
+        <li><a href="#modular-monolith">2. モジュラーモノリスとは</a></li>
+        <li><a href="#current-state">3. 現状と改善対象</a></li>
+        <li><a href="#overall">4. 全体構成</a></li>
+        <li><a href="#modules">5. モジュール境界</a></li>
+        <li><a href="#ddd">6. DDDの適用範囲</a></li>
+        <li><a href="#directories">7. ディレクトリ構成</a></li>
+        <li><a href="#dependencies">8. 依存ルール</a></li>
+        <li><a href="#flows">9. 処理フロー</a></li>
+        <li><a href="#database">10. DBとの責務分担</a></li>
+        <li><a href="#testing">11. テスト配置</a></li>
+        <li><a href="#migration">12. 段階的な移行</a></li>
+        <li><a href="#rules">13. 判断ルール</a></li>
+      </ul>
+    </aside>
+
+    <main id="document-content">
+      <p>本書は、<a href="API設計.html">API設計</a>と<a href="実装タスク一覧.html">実装タスク一覧</a>を実装可能なコード構成へ接続するための設計書である。ChemStockは、単一のNext.jsアプリケーションと単一のSupabase/PostgreSQLを維持しながら、業務機能ごとに内部境界を設ける。</p>
+
+      <h2 id="decision">1. 採用する構成</h2>
+      <div class="decision">
+        <strong>決定：</strong>「モジュラーモノリス + 軽量DDD + Ports and Adapters + 軽量CQRS」を採用する。マイクロサービス、イベントソーシング、全テーブルへのRepository導入は採用しない。
+      </div>
+      <table>
+        <thead><tr><th>観点</th><th>採用方針</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>配備</td><td>Next.jsアプリを1つ配備</td><td>4人で運用できる単純さを維持する</td></tr>
+          <tr><td>データベース</td><td>Supabase/PostgreSQLを1つ使用</td><td>入出庫・履歴・監査・通知を同一トランザクションで扱う</td></tr>
+          <tr><td>内部構造</td><td>業務モジュール単位で分割</td><td>担当分担と変更影響を明確にする</td></tr>
+          <tr><td>業務設計</td><td>複雑な機能にDDDを適用</td><td>在庫整合性、権限、指定数量、監査のルールを画面から分離する</td></tr>
+          <tr><td>読み書き</td><td>CommandとQueryを分離</td><td>書き込みは厳密に、一覧・集計は簡潔に実装する</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="modular-monolith">2. モジュラーモノリスとは</h2>
+      <p><strong>はい、本設計はモジュラーモノリスである。</strong>「モノリス」は悪い意味ではなく、配備単位とデータベースが1つであることを表す。「モジュラー」は、その内部で業務境界と依存方向が守られていることを表す。</p>
+      <table>
+        <thead><tr><th>構成</th><th>配備</th><th>内部境界</th><th>ChemStockでの採否</th></tr></thead>
+        <tbody>
+          <tr><td>層だけのモノリス</td><td>1つ</td><td>機能同士が自由に参照しやすい</td><td>採用しない</td></tr>
+          <tr><td><strong>モジュラーモノリス</strong></td><td>1つ</td><td>業務モジュール単位で公開APIを限定</td><td><strong>採用</strong></td></tr>
+          <tr><td>マイクロサービス</td><td>複数</td><td>ネットワークとDBで物理分離</td><td>現段階では採用しない</td></tr>
+        </tbody>
+      </table>
+      <p>単に<code>modules/</code>を作るだけではモジュラーモノリスにならない。次の3条件を継続的に守る。</p>
+      <ol>
+        <li>各モジュールが担当する業務とデータを明示する。</li>
+        <li>他モジュールの<code>infrastructure</code>や内部ファイルを直接importしない。</li>
+        <li>画面・Route HandlerからDBへ直接書き込まない。</li>
+      </ol>
+
+      <h2 id="current-state">3. 現状と改善対象</h2>
+      <table>
+        <thead><tr><th>現状</th><th>リスク</th><th>移行後</th></tr></thead>
+        <tbody>
+          <tr><td>Client Componentから<code>inventory</code>を直接更新</td><td>画面ごとに権限・業務ルールが分散する</td><td>API Routeから入出庫ユースケースを呼ぶ</td></tr>
+          <tr><td>在庫更新後に履歴を別処理で登録</td><td>片方だけ成功し、在庫と履歴が不一致になる</td><td>DB RPCで原子的に更新する</td></tr>
+          <tr><td>超過出庫時に0へ丸める</td><td>実際の差異が失われる</td><td>在庫不足として拒否する</td></tr>
+          <tr><td><code>supabase/setup.sql</code>にDDLを集約</td><td>環境間の変更履歴と再現性を追いにくい</td><td><code>supabase/migrations/</code>を正とする</td></tr>
+          <tr><td>業務ロジックとUIが同じファイル</td><td>単体テストが難しく、再利用時に重複する</td><td>Domain/Applicationへ分離する</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="overall">4. 全体構成</h2>
+      <pre class="mermaid"><code>flowchart TB
+    subgraph APP["ChemStock: 1つのNext.js配備単位"]
+      UI["画面 / React Components"]
+      ROUTE["Next.js Route Handlers / Server Adapters"]
+      subgraph MODULES["業務モジュール"]
+        ACCESS["access"]
+        MASTER["master-data"]
+        INVENTORY["inventory"]
+        COMPLIANCE["compliance"]
+        REPORTING["reporting"]
+      end
+      INFRA["Supabase Repositories / RPC Adapters"]
+      UI --> ROUTE
+      ROUTE --> MODULES
+      MODULES --> INFRA
+    end
+    INFRA --> DB[("1つのPostgreSQL")]
+    DB --> NOTIFY["アプリ内通知一覧 / 未確認バッジ"]</code></pre>
+      <p>指定数量が1.0以上になった場合は、在庫更新と同一トランザクションでアプリ内通知を作成する。メール、Webhook、Edge Functionは使用しない。</p>
+
+      <h3>モジュール内部の標準構造</h3>
+      <pre class="mermaid"><code>flowchart LR
+    PRESENTATION["Presentation"] --> APPLICATION["Application"]
+    APPLICATION --> DOMAIN["Domain"]
+    INFRASTRUCTURE["Infrastructure"] --> APPLICATION
+    INFRASTRUCTURE --> DOMAIN
+    DOMAIN -.->|"外部依存なし"| PURE["TypeScript標準機能"]</code></pre>
+      <table>
+        <thead><tr><th>層</th><th>責務</th><th>置かないもの</th></tr></thead>
+        <tbody>
+          <tr><td>Domain</td><td>値、状態遷移、業務ポリシー、ドメインエラー</td><td>React、Next.js、Supabaseクライアント</td></tr>
+          <tr><td>Application</td><td>ユースケース、認可判断、トランザクションの要求、Port</td><td>JSX、SQLの詳細、HTTPレスポンス</td></tr>
+          <tr><td>Infrastructure</td><td>Supabase、RPC、Repository実装</td><td>画面表示、業務用語のない汎用処理への過剰抽象化</td></tr>
+          <tr><td>Presentation</td><td>画面部品、フォーム状態、API呼び出し</td><td>直接のDB更新、指定数量の法令値</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="modules">5. モジュール境界</h2>
+      <table>
+        <thead><tr><th>モジュール</th><th>主な責務</th><th>主に扱うデータ</th><th>代表ユースケース</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>access</code></td>
+            <td>ログイン主体、role、所属室、閲覧・操作スコープ</td>
+            <td><code>accounts</code></td>
+            <td>現在のActor取得、部屋スコープ判定</td>
+          </tr>
+          <tr>
+            <td><code>master-data</code></td>
+            <td>研究室・溶媒庫、溶媒マスター、法令値、基準単位</td>
+            <td><code>rooms</code>、<code>solvents</code></td>
+            <td>溶媒参照、マスター更新、部屋種別判定</td>
+          </tr>
+          <tr>
+            <td><code>inventory</code></td>
+            <td>現在庫、入出庫、取消、訂正、下限、利用停止</td>
+            <td><code>inventory</code>、<code>inventory_logs</code></td>
+            <td>入出庫登録、履歴取消・訂正、下限変更</td>
+          </tr>
+          <tr>
+            <td><code>compliance</code></td>
+            <td>指定数量倍率、警告判定、通知状態、関連設定</td>
+            <td><code>notifications</code>、<code>settings</code></td>
+            <td>倍率取得、通知生成、確認・対応済み化</td>
+          </tr>
+          <tr>
+            <td><code>reporting</code></td>
+            <td>在庫推移、ダッシュボード、欠品予測の参照モデル</td>
+            <td>他モジュールの読み取り結果</td>
+            <td>残量推移取得、下限到達目安取得</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <strong>監査ログの扱い：</strong><code>operation_audits</code>は複数モジュールから利用する追記専用ストレージとする。ただし、監査を必要とするか、どのbefore/afterと理由を残すかは各ユースケースが決める。独立した「万能監査サービス」に業務判断を集めない。
+      </div>
+
+      <h3>モジュール間の連携</h3>
+      <ul>
+        <li><code>inventory</code>は溶媒の法令値を直接更新しない。必要な参照値だけを<code>master-data</code>の公開Queryから受け取る。</li>
+        <li><code>compliance</code>は在庫テーブルを自由に更新しない。在庫変更後の判定要求、または専用の集計Queryを使う。</li>
+        <li><code>reporting</code>は読み取り専用とし、在庫状態を変更しない。</li>
+        <li>モジュール間ではEntityそのものではなく、ID・Command・DTO・公開されたQuery結果を受け渡す。</li>
+      </ul>
+
+      <h2 id="ddd">6. DDDの適用範囲</h2>
+      <h3>DDDを強く適用する部分</h3>
+      <table>
+        <thead><tr><th>対象</th><th>モデル</th><th>守るルール</th></tr></thead>
+        <tbody>
+          <tr><td>在庫</td><td><code>InventoryStock</code>、<code>Quantity</code>、<code>Movement</code></td><td>負数禁止、利用停止中の操作禁止、基準単位、原子的な履歴保存</td></tr>
+          <tr><td>取消・訂正</td><td><code>Cancellation</code>、<code>Correction</code></td><td>物理削除禁止、理由必須、before/after監査、負数化拒否</td></tr>
+          <tr><td>権限</td><td><code>Actor</code>、<code>Role</code>、<code>RoomScope</code></td><td>研究室は自室のみ、指定数量情報は管理者のみ</td></tr>
+          <tr><td>指定数量</td><td><code>DesignatedQuantityRatio</code>、<code>WarningPolicy</code></td><td>溶媒庫単位、DBの指定数量を正とする、警告倍率と法令基準を区別</td></tr>
+          <tr><td>通知</td><td><code>NotificationStatus</code></td><td>重複抑制、未確認→確認済→対応済、管理スコープ</td></tr>
+        </tbody>
+      </table>
+
+      <h3>簡潔に実装する部分</h3>
+      <p>溶媒一覧、部屋一覧、履歴一覧、ダッシュボード集計などの参照処理は、必ずしもEntityを復元しない。ApplicationのQuery Serviceが用途別DTOを返す軽量CQRSとする。</p>
+
+      <h3>共通言語</h3>
+      <table>
+        <thead><tr><th>業務用語</th><th>コード上の標準名</th><th>注意点</th></tr></thead>
+        <tbody>
+          <tr><td>実操作者</td><td><code>operatorName</code></td><td>共有ログインのアカウントとは別。手入力必須</td></tr>
+          <tr><td>ログイン主体</td><td><code>actor</code></td><td>認証、role、roomスコープを持つ</td></tr>
+          <tr><td>入庫・使用</td><td><code>movement</code></td><td>符号をUI任せにせず種別と数量で表現する</td></tr>
+          <tr><td>利用停止</td><td><code>deactivate</code></td><td>削除ではない</td></tr>
+          <tr><td>指定数量倍率</td><td><code>designatedQuantityRatio</code></td><td><code>warningRatio</code>とは別概念</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="directories">7. ディレクトリ構成</h2>
+      <p>既存の<code>app/</code>を一括で<code>src/</code>へ移動しない。ルート直下に<code>modules/</code>を追加し、新しいAPIとユースケースから段階的に移す。</p>
+      <pre><code>chemstock/
+├── app/                              # Next.jsのルート／HTTPアダプター
+│   ├── (auth)/                       # URLに影響しない認証系Route Group
+│   ├── (app)/                        # ログイン後画面
+│   │   ├── inventory/
+│   │   └── admin/
+│   └── api/
+│       └── v1/
+│           ├── inventories/
+│           │   └── [inventoryId]/
+│           │       └── movements/route.ts
+│           ├── inventory-logs/
+│           └── admin/
+│
+├── modules/
+│   ├── inventory/
+│   │   ├── domain/
+│   │   │   ├── inventory-stock.ts
+│   │   │   ├── quantity.ts
+│   │   │   ├── movement.ts
+│   │   │   ├── policies.ts
+│   │   │   └── errors.ts
+│   │   ├── application/
+│   │   │   ├── commands/
+│   │   │   │   ├── register-movement.ts
+│   │   │   │   ├── cancel-movement.ts
+│   │   │   │   └── correct-movement.ts
+│   │   │   ├── queries/
+│   │   │   ├── ports/
+│   │   │   │   ├── inventory-command-repository.ts
+│   │   │   │   └── inventory-query-repository.ts
+│   │   │   └── dto.ts
+│   │   ├── infrastructure/
+│   │   │   └── supabase/
+│   │   │       ├── inventory-command-repository.ts
+│   │   │       └── inventory-query-repository.ts
+│   │   ├── presentation/
+│   │   │   ├── components/
+│   │   │   └── hooks/
+│   │   └── index.ts                  # モジュールの公開面だけをexport
+│   ├── access/
+│   ├── master-data/
+│   ├── compliance/
+│   └── reporting/
+│
+├── shared/                           # 最小限の横断要素のみ
+│   ├── domain/                       # Result、共通ID型など
+│   ├── application/                  # Clock、RequestIdなど
+│   ├── infrastructure/               # 監査追記アダプターなど
+│   └── presentation/                 # 業務知識を持たない共通UI
+│
+├── lib/
+│   ├── api/                          # 認証、入力検証、HTTP応答変換
+│   ├── composition/                  # Use CaseとRepositoryの組み立て
+│   └── supabase/                     # browser/server client生成
+│
+├── supabase/
+│   ├── migrations/                   # DDL、RLS、PostgreSQL RPC
+│   ├── tests/                        # DB関数・RLSテスト
+│   └── seed.sql
+│
+└── tests/
+    └── e2e/</code></pre>
+
+      <h3>配置判断</h3>
+      <table>
+        <thead><tr><th>コード</th><th>配置先</th><th>例</th></tr></thead>
+        <tbody>
+          <tr><td>業務ルールを表す純粋関数・型</td><td><code>modules/*/domain</code></td><td>在庫不足判定、通知状態遷移</td></tr>
+          <tr><td>ユーザー操作として名前が付く処理</td><td><code>modules/*/application</code></td><td>入出庫登録、履歴取消</td></tr>
+          <tr><td>Supabase・RPC固有処理</td><td><code>modules/*/infrastructure</code></td><td><code>supabase.rpc()</code></td></tr>
+          <tr><td>画面固有のReact部品</td><td><code>modules/*/presentation</code></td><td>入出庫フォーム、通知一覧</td></tr>
+          <tr><td>URL・HTTP変換</td><td><code>app/api</code></td><td>入力JSON→Command、Result→Response</td></tr>
+          <tr><td>複数機能で見た目だけ共通</td><td><code>components/ui</code>または<code>shared/presentation</code></td><td>Button、Dialog</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="dependencies">8. 依存ルール</h2>
+      <h3>許可する依存</h3>
+      <ul>
+        <li><span class="label">OK</span><code>app/api</code> → モジュールの公開Application API</li>
+        <li><span class="label">OK</span><code>presentation</code> → <code>application</code>のDTO・Command型</li>
+        <li><span class="label">OK</span><code>application</code> → <code>domain</code>とApplication Port</li>
+        <li><span class="label">OK</span><code>infrastructure</code> → Application PortとDomain型</li>
+        <li><span class="label">OK</span>モジュール間 → 相手モジュールの<code>index.ts</code>で公開された型・Query</li>
+      </ul>
+      <h3>禁止する依存</h3>
+      <ul>
+        <li><span class="label label--avoid">禁止</span>Client Component → <code>supabase.from(...).update/insert/delete</code></li>
+        <li><span class="label label--avoid">禁止</span>Domain → React、Next.js、Supabase</li>
+        <li><span class="label label--avoid">禁止</span>あるモジュール → 別モジュールの<code>infrastructure</code></li>
+        <li><span class="label label--avoid">禁止</span>Repositoryをテーブル単位で作ること</li>
+        <li><span class="label label--avoid">禁止</span><code>shared/</code>を何でも置ける場所にすること</li>
+        <li><span class="label label--avoid">禁止</span>法令値、role、状態値を画面コードへ重複してハードコードすること</li>
+      </ul>
+      <p>依存ルールはコードレビューだけに頼らず、基盤安定後にESLintのimport制約で自動検査する。</p>
+
+      <h2 id="flows">9. 処理フロー</h2>
+      <h3>入出庫Command</h3>
+      <pre class="mermaid"><code>sequenceDiagram
+    actor User as 利用者
+    participant UI as 入出庫画面
+    participant API as Route Handler
+    participant Auth as Access Module
+    participant UC as RegisterMovement
+    participant Repo as Inventory Command Port
+    participant RPC as PostgreSQL RPC
+    participant DB as Database
+    User->>UI: 数量・実操作者名を入力
+    UI->>API: POST movement + requestId
+    API->>Auth: セッションとroomスコープ取得
+    API->>UC: CommandとActorを渡す
+    UC->>UC: 入力・権限・業務前提を検証
+    UC->>Repo: registerMovement
+    Repo->>RPC: セッション付きでRPC実行
+    RPC->>DB: 行ロック・在庫更新・履歴追加・通知判定
+    DB-->>RPC: 更新結果
+    RPC-->>Repo: Result
+    Repo-->>UC: Result
+    UC-->>API: DTOまたはDomain Error
+    API-->>UI: HTTP Response</code></pre>
+      <p>Route HandlerはHTTP変換に限定し、在庫不足や操作可能範囲などの判断を持たない。DB RPCは同時更新に耐える最終防衛線として行ロック、制約、原子性を保証する。</p>
+
+      <h3>Query</h3>
+      <p>一覧・詳細・グラフはQuery Serviceから用途別DTOを返す。書き込み用Aggregateを毎回復元する必要はない。ただしRLSを必ず通し、研究室ユーザーへ指定数量関連フィールドを返さない。</p>
+
+      <h2 id="database">10. DBとの責務分担</h2>
+      <table>
+        <thead><tr><th>責務</th><th>TypeScript側</th><th>PostgreSQL側</th></tr></thead>
+        <tbody>
+          <tr><td>入力表現</td><td>Command、値オブジェクト、形式検証</td><td>型、NOT NULL、CHECK制約</td></tr>
+          <tr><td>認可</td><td>ユースケース実行可否と返却項目</td><td>RLSによる迂回防止</td></tr>
+          <tr><td>在庫整合性</td><td>在庫不足などをDomain Errorとして表現</td><td>行ロック、負数防止、同一トランザクション</td></tr>
+          <tr><td>履歴・監査</td><td>必要な理由・before/afterを要求</td><td>在庫・履歴・監査を原子的に保存</td></tr>
+          <tr><td>指定数量</td><td>管理者向けユースケースと表示文脈</td><td>DB値による集計、重複通知抑止</td></tr>
+          <tr><td>アプリ内通知</td><td>管理者向け表示、未確認件数、状態遷移</td><td>超過判定と通知作成を同一トランザクションで実行</td></tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        <strong>重要：</strong>PostgreSQLのRPC定義は<code>supabase/migrations/</code>へ置く。ユーザーAPIでservice roleを使ってRLSを迂回しない。指定数量通知のための外部メール基盤は設けない。
+      </div>
+
+      <h2 id="testing">11. テスト配置</h2>
+      <table>
+        <thead><tr><th>種類</th><th>配置</th><th>主な対象</th></tr></thead>
+        <tbody>
+          <tr><td>Domain単体</td><td><code>modules/*/domain/*.test.ts</code></td><td>数量、状態遷移、指定数量判定</td></tr>
+          <tr><td>Application単体</td><td><code>modules/*/application/*.test.ts</code></td><td>Fake Portを使った認可、エラー変換、監査要求</td></tr>
+          <tr><td>DB統合</td><td><code>supabase/tests/</code></td><td>RPC原子性、競合、CHECK、RLSマトリクス</td></tr>
+          <tr><td>API統合</td><td>Route/APIテスト</td><td>認証、入力検証、エラーコード、非公開フィールド</td></tr>
+          <tr><td>E2E</td><td><code>tests/e2e/</code></td><td>スマホ幅の主要フロー、取消、通知、管理者スコープ</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="migration">12. 段階的な移行</h2>
+      <ol>
+        <li><strong>基盤：</strong><code>modules/</code>、テスト基盤、マイグレーション、共通HTTP応答を追加する。</li>
+        <li><strong>最初の縦切り：</strong>入出庫のDomain/Application/Infrastructure/APIを作り、既存画面の送信先だけをAPIへ変更する。</li>
+        <li><strong>監査：</strong>取消・訂正・下限変更・利用停止を同じ境界へ移す。</li>
+        <li><strong>指定数量：</strong>Complianceモジュール、超過時のアプリ内通知、未確認バッジを追加する。</li>
+        <li><strong>参照処理：</strong>一覧・詳細・推移をQuery Serviceへ段階移行する。</li>
+        <li><strong>整理：</strong>直接DB更新が残っていないことを確認し、<code>setup.sql</code>をマイグレーションへ一本化する。</li>
+      </ol>
+      <p>既存URLと画面遷移は維持する。一括改修ではなく、ユースケース単位でE2Eテストを通しながら置き換える。</p>
+
+      <h2 id="rules">13. 判断ルール</h2>
+      <table>
+        <thead><tr><th>迷ったときの質問</th><th>Yesの場合</th></tr></thead>
+        <tbody>
+          <tr><td>この処理には業務上の不変条件があるか</td><td>Domainへ置く</td></tr>
+          <tr><td>利用者の操作として名前を付けられるか</td><td>Application Use Caseへ置く</td></tr>
+          <tr><td>Supabaseや外部サービス固有か</td><td>Infrastructureへ置く</td></tr>
+          <tr><td>HTTPや画面表示だけの関心事か</td><td>appまたはPresentationへ置く</td></tr>
+          <tr><td>複数モジュールで本当に同じ意味か</td><td>初めてshared化を検討する</td></tr>
+          <tr><td>1つのDBトランザクションが必要か</td><td>Command PortとDB RPCの境界を設計する</td></tr>
+        </tbody>
+      </table>
+      <p>関連資料：<a href="ER図.md">ER図</a>、<a href="API設計.html">API設計</a>、<a href="実装タスク一覧.html">実装タスク一覧</a>、<a href="開発準備・リリース計画.html">開発準備・リリース計画</a></p>
+    </main>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    for (const code of document.querySelectorAll("pre.mermaid > code")) {
+      code.parentElement.textContent = code.textContent;
+    }
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "neutral",
+      securityLevel: "strict",
+      fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    });
+  </script>
+</body>
+</html>

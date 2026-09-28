@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChemStock 新UI案モックアップ（下部タブバー導入）</title>
+<style>
+  :root{
+    --mint:#d5ebe1;
+    --mint-deep:#c3e0d3;
+    --teal:#2e6b58;
+    --teal-dark:#24523f;
+    --line:#c6ddd2;
+    --line-strong:#9dbfb0;
+    --text:#22332c;
+    --muted:#5f7a6f;
+    --link:#2b6cb0;
+    --warn-bg:#fdf2e3;
+    --warn:#b45309;
+    --new:#fb8c00;
+    --danger:#c0392b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    background:#eef2f0;color:var(--text);padding:32px;
+  }
+  h1{font-size:20px;margin-bottom:4px;}
+  .lead{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.7;}
+  .badge-new{display:inline-block;background:#fff3e0;color:var(--new);border:1px solid var(--new);
+    border-radius:3px;font-size:10px;padding:0 4px;margin-left:4px;vertical-align:1px;}
+
+  /* ---- flow layout（遷移を矢印で表現） ---- */
+  .flow{margin-bottom:12px;}
+  .flow-title{font-size:14px;font-weight:700;color:var(--teal-dark);
+    margin:22px 0 8px;padding-left:8px;border-left:4px solid var(--teal);}
+  .flow-desc{font-size:12px;color:var(--muted);margin:-4px 0 8px 12px;line-height:1.6;}
+  .flow-row{display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 2px 12px;}
+  .shot{display:flex;flex-direction:column;gap:8px;flex-shrink:0;}
+  .shot>.caption{font-size:13px;font-weight:600;}
+  .shot>.caption small{font-weight:400;color:var(--muted);}
+
+  /* ---- arrow connector ---- */
+  .arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    align-self:center;padding:0 12px;flex-shrink:0;color:var(--teal);}
+  .arrow .lbl{font-size:10px;color:var(--teal-dark);background:#e3f0ea;
+    border:1px solid var(--line-strong);border-radius:10px;padding:1px 8px;
+    margin-bottom:4px;white-space:nowrap;font-weight:600;}
+  .arrow .ln{font-size:26px;line-height:1;}
+  /* 分岐の起点（履歴一覧の各行など）を小さく示すノード */
+  .origin{flex-shrink:0;align-self:center;width:132px;
+    background:#eef6f2;border:1px dashed var(--line-strong);border-radius:8px;
+    padding:12px 10px;font-size:11px;color:var(--muted);text-align:center;line-height:1.6;}
+  .origin b{color:var(--teal-dark);}
+
+  /* ---- phone frame ---- */
+  .phone{
+    position:relative;
+    width:320px;height:640px;background:var(--mint);
+    border:1px solid #b9cfc4;border-radius:18px;overflow:hidden;
+    display:flex;flex-direction:column;box-shadow:0 4px 14px rgba(0,0,0,.08);
+  }
+  .screen{flex:1;overflow:hidden;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;}
+
+  /* ---- header ---- */
+  .hdr{display:flex;align-items:center;justify-content:space-between;}
+  .hdr .ttl{font-size:16px;font-weight:700;}
+  .hdr .icons{display:flex;gap:10px;font-size:15px;align-items:center;}
+  .hdr .icons .txtlink{font-size:11px;color:var(--link);text-decoration:underline;}
+  a.back{font-size:11px;color:var(--link);text-decoration:underline;}
+
+  /* ---- parts ---- */
+  .card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:10px;}
+  .btn{display:inline-block;background:var(--teal);color:#fff;border:none;border-radius:4px;
+    padding:8px 16px;font-size:13px;text-align:center;}
+  .btn.small{padding:5px 10px;font-size:11px;}
+  .btn.ghost{background:#fff;color:var(--teal);border:1px solid var(--teal);}
+  .btn.danger{background:var(--danger);color:#fff;}
+  .btn.block{display:block;width:100%;}
+  .bigcard{background:var(--teal);color:#fff;border-radius:6px;padding:16px;
+    text-align:center;font-size:15px;font-weight:600;}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:11px;}
+  th,td{border:1px solid var(--line);padding:5px 6px;text-align:left;}
+  th{background:#eef6f2;font-weight:600;}
+  tr.hl td{background:#fff6ec;}
+  .select{background:#fff;border:1px solid var(--line-strong);border-radius:4px;
+    padding:6px 8px;font-size:12px;color:var(--text);display:inline-flex;align-items:center;gap:6px;}
+  .select::after{content:"▼";font-size:9px;color:var(--muted);}
+  .label{font-size:12px;font-weight:600;color:var(--teal-dark);}
+  .req{color:var(--danger);font-size:10px;font-weight:700;margin-left:3px;}
+  .field{background:#fff;border:1px solid var(--line-strong);border-radius:4px;
+    padding:7px 9px;font-size:12px;color:var(--muted);}
+  .field.filled{color:var(--text);}
+  .note{font-size:10px;color:var(--muted);line-height:1.6;}
+  .list-item{display:flex;justify-content:space-between;align-items:center;
+    padding:12px 10px;font-size:13px;}
+  .list-item+.list-item{border-top:1px solid var(--line);}
+  .list-item .chev{color:var(--muted);}
+  .banner{background:var(--warn-bg);border:1px solid #f0c98d;border-radius:6px;padding:8px 10px;}
+  .banner .b-ttl{font-size:12px;font-weight:700;color:var(--warn);margin-bottom:4px;}
+  .banner .b-row{font-size:12px;color:var(--text);padding:2px 0;}
+  .radio-list{display:flex;flex-direction:column;gap:4px;font-size:12px;}
+  .radio-list span::before{content:"◯ ";color:var(--muted);}
+  .radio-list span.sel::before{content:"◉ ";color:var(--teal);}
+  .center{text-align:center;}
+  .spacer{flex:1;}
+
+  /* ---- modal overlay（ダイアログ表現） ---- */
+  .overlay{position:absolute;inset:0;background:rgba(20,40,32,.34);
+    display:flex;align-items:center;justify-content:center;padding:16px;z-index:5;}
+  .modal{background:#fff;border-radius:10px;padding:14px;width:100%;
+    box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;flex-direction:column;gap:9px;}
+  .modal .m-ttl{font-size:14px;font-weight:700;color:var(--danger);}
+  .modal .target{background:#f6faf8;border:1px solid var(--line);border-radius:6px;
+    padding:8px 10px;font-size:12px;}
+  .modal .m-actions{display:flex;gap:8px;margin-top:2px;}
+  .modal .m-actions .btn{flex:1;}
+
+  /* ---- tab bar ---- */
+  .tabbar{
+    display:flex;background:#fff;border-top:1px solid var(--line-strong);
+    height:56px;flex-shrink:0;
+  }
+  .tab{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;font-size:9px;color:#8a9a92;
+  }
+  .tab .ic{font-size:16px;line-height:1;filter:grayscale(1);opacity:.55;}
+  .tab.active{color:var(--teal);font-weight:700;}
+  .tab.active .ic{filter:none;opacity:1;}
+  .tab.active::before{content:"";display:block;width:28px;height:3px;border-radius:2px;
+    background:var(--teal);margin-bottom:1px;}
+</style>
+</head>
+<body>
+
+<h1>ChemStock 新UI案モックアップ</h1>
+<p class="lead">
+  既存UI（ミントグリーン基調・濃緑ボタン・白カード）に<strong>下部タブバー（5タブ）を追加</strong>する案。
+  既存画面の中身は変更せず、<span class="badge-new">★新規</span> が今回の追加要素。<br>
+  <strong>機能フローごとに画面を横並びにし、フレーム間の矢印＋ラベルで遷移（操作・タップ）を示す。</strong>
+  緑のラベル付き <b style="color:var(--teal)">▶</b> が遷移の操作。破線の枠は分岐の起点（同じ画面から複数へ分岐）を表す。<br>
+  遷移の全体像は <a href="../画面遷移図.md">画面遷移図.md</a>、各画面の仕様は <a href="../UI案.md">UI案.md</a> を参照。
+  下部タブバーはログイン以外の全画面に常時表示（各フレームに再掲）。
+</p>
+
+<!-- ========================================================= -->
+<!-- 入口：ホーム／グラフ（下部タブから直接開く）              -->
+<!-- ========================================================= -->
+<div class="flow">
+  <div class="flow-title">🏠 入口（下部タブバーから直接開く画面）</div>
+  <div class="flow-desc">ホームは既存2カード維持＋残量低下バナー<span class="badge-new">★新規</span>。グラフはタブから中間画面なしで直接表示。</div>
+  <div class="flow-row">
+
+    <!-- ホーム -->
+    <div class="shot">
+      <div class="caption">ホーム <small>／2カード維持＋お知らせバナー<span class="badge-new">★新規</span></small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <span class="ttl">ホーム</span>
+            <span class="icons"><span class="txtlink">ログアウト ⇥</span></span>
+          </div>
+          <div class="banner">
+            <div class="b-ttl">⚠ 残量低下のお知らせ</div>
+            <div class="b-row">アセトン（溶媒庫）残量 2.0 L ＞</div>
+            <div class="b-row">トルエン（A部屋）残量 1.5 L ＞</div>
+          </div>
+          <div style="height:6px"></div>
+          <div class="bigcard">溶媒の登録・使用</div>
+          <div class="bigcard">溶媒の在庫閲覧</div>
+          <p class="note">※既存2カードは変更なし。バナーは該当がある時のみ表示、行タップで詳細情報へ。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"><span class="lbl">📈 グラフタブ</span><span class="ln">▶</span></div>
+
+    <!-- グラフ -->
+    <div class="shot">
+      <div class="caption">残量推移グラフ <span class="badge-new">★新規</span></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">残量推移グラフ</span><span class="icons">🏠</span></div>
+          <div>
+            <span class="select">メタノール</span>
+            <span class="select">1ヶ月</span>
+          </div>
+          <div class="card">
+            <svg viewBox="0 0 260 150" width="100%" height="150">
+              <line x1="30" y1="10" x2="30" y2="125" stroke="#9dbfb0"/>
+              <line x1="30" y1="125" x2="250" y2="125" stroke="#9dbfb0"/>
+              <text x="6" y="30" font-size="9" fill="#5f7a6f">50L</text>
+              <text x="6" y="75" font-size="9" fill="#5f7a6f">30L</text>
+              <text x="6" y="120" font-size="9" fill="#5f7a6f">10L</text>
+              <line x1="30" y1="103" x2="250" y2="103" stroke="#b45309" stroke-dasharray="4 3"/>
+              <text x="200" y="99" font-size="8" fill="#b45309">下限 5.0 L</text>
+              <polyline points="30,25 80,40 120,42 160,70 200,72 250,88"
+                fill="none" stroke="#2e6b58" stroke-width="2.5"/>
+              <text x="30" y="140" font-size="9" fill="#5f7a6f">10/1</text>
+              <text x="125" y="140" font-size="9" fill="#5f7a6f">10/15</text>
+              <text x="225" y="140" font-size="9" fill="#5f7a6f">10/31</text>
+            </svg>
+          </div>
+          <div class="card center" style="font-size:13px;">
+            現在残量 <b>32.5 L</b>　／　下限 5.0 L
+          </div>
+          <p class="note">※タブから直接開く（中間画面なし）。溶媒・期間はプルダウンで切替。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab active"><span class="ic">📈</span>グラフ</div>
+          <div class="tab"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- ✏️ 登録・使用フロー（入出庫→履歴→取消／編集）             -->
+<!-- ========================================================= -->
+<div class="flow">
+  <div class="flow-title">✏️ 登録・使用フロー（入出庫の記録 → 履歴 → 取消／編集）</div>
+  <div class="flow-desc">履歴の近くに取消・編集を置く。取消・編集は<strong>物理削除せず</strong>、実操作者名・理由を入力 → 在庫再計算＋監査記録（<a href="../ER図.md">ER図</a> の <code>inventory_logs.status</code> / <code>operation_audits</code>）。</div>
+  <div class="flow-row">
+
+    <!-- 登録・使用 -->
+    <div class="shot">
+      <div class="caption">登録・使用タブ <small>／既存の残量調整＋履歴リンク<span class="badge-new">★新規</span></small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <span class="ttl">残量調整</span>
+            <span class="icons"><span class="txtlink">🕘 履歴</span> 🏠</span>
+          </div>
+          <span class="label">○部屋選択</span>
+          <div class="card radio-list">
+            <span class="sel">溶媒庫</span><span>学生実験室</span><span>A部屋</span>
+          </div>
+          <span class="label">○溶媒選択</span>
+          <div class="card radio-list">
+            <span class="sel">メタノール</span><span>エタノール</span><span>アセトン</span>
+          </div>
+          <span class="label">残量調整</span>
+          <div class="card center" style="font-size:13px;">
+            <span class="btn small ghost">−1 L</span>　<b>3.5 L</b>　<span class="btn small ghost">＋1 L</span>
+            <div style="margin-top:6px;font-size:12px;">☑ 追加する　☐ 使用する</div>
+          </div>
+          <div class="center"><span class="btn">確認画面</span></div>
+          <p class="note">※画面は既存のまま。右上の「🕘 履歴」から入出庫履歴一覧へ（★新規）。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab active"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"><span class="lbl">🕘 履歴</span><span class="ln">▶</span></div>
+
+    <!-- 入出庫履歴一覧 -->
+    <div class="shot">
+      <div class="caption">入出庫履歴一覧 <span class="badge-new">★新規</span> <small>／取消・編集の入口</small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">入出庫履歴</span><span class="icons">🏠</span></div>
+          <a class="back">← 残量調整に戻る</a>
+          <div>
+            <span class="select">部屋：すべて</span>
+            <span class="select">溶媒：すべて</span>
+          </div>
+          <table>
+            <tr><th>日付</th><th>溶媒</th><th>変量</th><th>使用者</th><th></th></tr>
+            <tr><td>10/9</td><td>メタノール</td><td>＋3.0 L</td><td>学生A</td><td><span class="btn small ghost">編集</span> <span class="btn small ghost">取消</span></td></tr>
+            <tr class="hl"><td>10/7</td><td>アセトン</td><td>−1.0 L</td><td>学生B</td><td><span class="btn small ghost">編集</span> <span class="btn small danger">取消</span></td></tr>
+            <tr><td>10/5</td><td>エタノール</td><td>−2.0 L</td><td>学生A</td><td><span class="btn small ghost">編集</span> <span class="btn small ghost">取消</span></td></tr>
+          </table>
+          <div class="center"><span class="btn small ghost">さらに表示</span></div>
+          <p class="note">※各行の「取消／編集」から下の2画面へ分岐。実操作者名・理由を入力 → 在庫再計算＋監査記録。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab active"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"><span class="lbl">行の「取消」</span><span class="ln">▶</span></div>
+
+    <!-- 取消確認ダイアログ -->
+    <div class="shot">
+      <div class="caption">取消確認ダイアログ <span class="badge-new">★新規</span> <small>／＝「履歴を削除」</small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">入出庫履歴</span><span class="icons">🏠</span></div>
+          <a class="back">← 残量調整に戻る</a>
+          <div>
+            <span class="select">部屋：すべて</span>
+            <span class="select">溶媒：すべて</span>
+          </div>
+          <table>
+            <tr><th>日付</th><th>溶媒</th><th>変量</th><th>使用者</th><th></th></tr>
+            <tr><td>10/9</td><td>メタノール</td><td>＋3.0 L</td><td>学生A</td><td>…</td></tr>
+            <tr class="hl"><td>10/7</td><td>アセトン</td><td>−1.0 L</td><td>学生B</td><td>…</td></tr>
+          </table>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab active"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab"><span class="ic">⚙️</span>管理</div>
+        </div>
+        <!-- モーダル -->
+        <div class="overlay">
+          <div class="modal">
+            <div class="m-ttl">この記録を取り消しますか？</div>
+            <div class="target">
+              <b>10/7　アセトン　−1.0 L</b><br>
+              使用者：学生B ／ 溶媒庫
+            </div>
+            <div>
+              <span class="label">実操作者名<span class="req">必須</span></span>
+              <div class="field" style="margin-top:3px;">氏名を入力（過去入力をサジェスト）</div>
+            </div>
+            <div>
+              <span class="label">取消理由<span class="req">必須</span></span>
+              <div class="field" style="margin-top:3px;">例）入力ミスのため</div>
+            </div>
+            <p class="note">※物理削除しない。<code>status=取消</code> に変更し在庫 +1.0 L 再計算、<code>operation_audits</code> に before/after＋理由を記録。</p>
+            <div class="m-actions">
+              <span class="btn ghost">キャンセル</span>
+              <span class="btn danger">取り消す</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 編集は履歴一覧の各行「編集」から分岐 -->
+  <div class="flow-row" style="margin-top:4px;">
+    <div class="origin">
+      <b>入出庫履歴一覧</b><br>の各行「編集」<br><span style="font-size:16px;color:var(--teal);">↑ 上のフローから</span>
+    </div>
+
+    <div class="arrow"><span class="lbl">行の「編集」</span><span class="ln">▶</span></div>
+
+    <!-- 記録の編集 -->
+    <div class="shot">
+      <div class="caption">記録の編集 <span class="badge-new">★新規</span> <small>／変量・使用者を修正</small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">記録の編集</span><span class="icons">🏠</span></div>
+          <a class="back">← 入出庫履歴に戻る</a>
+          <div class="card" style="font-size:12px;">
+            対象：<b>10/9　メタノール　＋3.0 L</b>（学生A）
+          </div>
+          <div>
+            <span class="label">区分</span>
+            <div style="margin-top:4px;font-size:12px;">☑ 追加する　☐ 使用する</div>
+          </div>
+          <div>
+            <span class="label">変量</span>
+            <div class="card center" style="font-size:13px;margin-top:4px;">
+              <span class="btn small ghost">−0.5</span>　<b class="filled">3.0 L</b>　<span class="btn small ghost">＋0.5</span>
+            </div>
+          </div>
+          <div>
+            <span class="label">使用者名</span>
+            <div class="field filled" style="margin-top:3px;">学生A</div>
+          </div>
+          <div>
+            <span class="label">実操作者名<span class="req">必須</span></span>
+            <div class="field" style="margin-top:3px;">氏名を入力</div>
+          </div>
+          <div>
+            <span class="label">変更理由<span class="req">必須</span></span>
+            <div class="field" style="margin-top:3px;">例）数量の入力誤り訂正</div>
+          </div>
+          <div class="center"><span class="btn">確認して保存</span></div>
+          <p class="note">※保存で差分を在庫に再計算＋監査記録。日付など不変項目は編集不可。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab active"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- 🔍 在庫フロー（一覧 → 詳細＋下限設定）                     -->
+<!-- ========================================================= -->
+<div class="flow">
+  <div class="flow-title">🔍 在庫フロー（在庫一覧 → 詳細情報＋在庫下限設定）</div>
+  <div class="flow-desc">在庫検索→一覧→詳細は既存のまま。詳細に「下限値」行を1行追加<span class="badge-new">★新規</span>。変更はダイアログ（画面遷移なし）。</div>
+  <div class="flow-row">
+
+    <div class="origin">
+      <b>在庫一覧</b><br>（既存 /inventory/list）<br>部屋別・溶媒別
+    </div>
+
+    <div class="arrow"><span class="lbl">行タップ</span><span class="ln">▶</span></div>
+
+    <!-- 詳細情報＋下限設定 -->
+    <div class="shot">
+      <div class="caption">詳細情報 <small>／既存＋在庫下限の行を追加<span class="badge-new">★新規</span></small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">詳細情報</span><span class="icons">🏠</span></div>
+          <a class="back">← 在庫一覧に戻る</a>
+          <div class="center" style="font-weight:700;font-size:14px;">溶媒庫<br>メタノール</div>
+          <table>
+            <tr><td>CAS番号</td><td>67-56-1</td></tr>
+            <tr><td>分子式</td><td>CH₃OH</td></tr>
+            <tr><td>分子量</td><td>32.04 g/mol</td></tr>
+            <tr><td><b>下限値</b> <span class="badge-new">★新規</span></td><td>5.0 L　<span class="btn small ghost">⚙ 変更</span></td></tr>
+          </table>
+          <table>
+            <tr><th>日付</th><th>変量</th><th>使用者</th></tr>
+            <tr><td>10/9</td><td>＋3.0 L</td><td>学生A</td></tr>
+            <tr><td>10/7</td><td>−3.0 L</td><td>学生B</td></tr>
+          </table>
+          <p class="note">※「⚙ 変更」はダイアログで下限値を入力（画面遷移なし）。他は既存のまま。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab active"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- ⚙️ 管理フロー（管理タブ → 溶媒種類管理／管理者画面）        -->
+<!-- ========================================================= -->
+<div class="flow">
+  <div class="flow-title">⚙️ 管理フロー（管理タブ → 溶媒種類管理／管理者画面）</div>
+  <div class="flow-desc">「管理」タブは項目リスト型。管理者ロールのみ「管理者画面」を表示（研究室ユーザーには非表示。タブ自体は全ロール共通の5つ）。</div>
+  <div class="flow-row">
+
+    <!-- 管理タブ -->
+    <div class="shot">
+      <div class="caption">管理タブ <span class="badge-new">★新規</span> <small>／項目はロールで出し分け</small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">管理</span><span class="icons">🏠</span></div>
+          <div class="card" style="padding:0;">
+            <div class="list-item"><span>🧪 溶媒種類管理</span><span class="chev">＞</span></div>
+            <div class="list-item"><span>🛡 管理者画面 <span class="badge-new">管理者のみ</span></span><span class="chev">＞</span></div>
+          </div>
+          <p class="note">※研究室ユーザーには「溶媒種類管理」のみ表示。タブ自体は全ロール共通の5つ。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab active"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"><span class="lbl">🧪 溶媒種類管理</span><span class="ln">▶</span></div>
+
+    <!-- 溶媒種類管理 -->
+    <div class="shot">
+      <div class="caption">溶媒種類管理 <span class="badge-new">★新規</span></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">溶媒種類管理</span><span class="icons">🏠</span></div>
+          <a class="back">← 管理に戻る</a>
+          <div style="text-align:right;"><span class="btn small">＋ 溶媒を追加</span></div>
+          <table>
+            <tr><th>溶媒名</th><th>CAS番号</th><th></th></tr>
+            <tr><td>メタノール</td><td>67-56-1</td><td><span class="btn small ghost">利用停止</span></td></tr>
+            <tr><td>エタノール</td><td>64-17-5</td><td><span class="btn small ghost">利用停止</span></td></tr>
+            <tr><td>アセトン</td><td>67-64-1</td><td><span class="btn small ghost">利用停止</span></td></tr>
+            <tr><td>トルエン</td><td>108-88-3</td><td><span class="btn small ghost">利用停止</span></td></tr>
+          </table>
+          <p class="note">※「＋溶媒を追加」は既存フォームと同形式（必須のみ表示・任意は折りたたみ）→確認→完了。利用停止は確認ダイアログ。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab active"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 管理者画面は管理タブから分岐（管理者ロールのみ） -->
+  <div class="flow-row" style="margin-top:4px;">
+    <div class="origin">
+      <b>管理タブ</b><br>「🛡 管理者画面」<br><span style="font-size:11px;color:var(--danger);">管理者ロールのみ</span>
+    </div>
+
+    <div class="arrow"><span class="lbl">🛡 管理者画面</span><span class="ln">▶</span></div>
+
+    <!-- 管理者画面 -->
+    <div class="shot">
+      <div class="caption">管理者画面 <span class="badge-new">★新規</span> <small>／管理者ロールのみ</small></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr"><span class="ttl">管理者画面</span><span class="icons">🏠</span></div>
+          <a class="back">← 管理に戻る</a>
+          <div class="card" style="padding:0;">
+            <div class="list-item"><span>🔔 通知一覧　<small style="color:#b45309;">未確認 2</small></span><span class="chev">＞</span></div>
+            <div class="list-item"><span>📊 利用履歴分析</span><span class="chev">＞</span></div>
+            <div class="list-item"><span>🧪 溶媒マスタ管理</span><span class="chev">＞</span></div>
+            <div class="list-item"><span>⚙️ 各種設定</span><span class="chev">＞</span></div>
+          </div>
+          <p class="note">※通知一覧は 未確認／確認済／対応済 のステータス切替タブ。各種設定はしきい値・通知先・単位。指定数量監視は将来対応。</p>
+          <div class="spacer"></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><span class="ic">🏠</span>ホーム</div>
+          <div class="tab"><span class="ic">✏️</span>登録・使用</div>
+          <div class="tab"><span class="ic">🔍</span>在庫</div>
+          <div class="tab"><span class="ic">📈</span>グラフ</div>
+          <div class="tab active"><span class="ic">⚙️</span>管理</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
