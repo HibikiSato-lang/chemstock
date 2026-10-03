@@ -1,3 +1,6 @@
+-- Legacy demo setup only. Its room seed includes physical rooms and a standalone
+-- "溶媒庫" row, which do not match the production model (one row per lab within
+-- the single solvent storage room). Do not run this seed in production.
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 

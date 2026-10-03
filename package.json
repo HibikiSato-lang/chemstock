@@ -4,7 +4,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test-accounts:create": "node scripts/create_test_accounts.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",

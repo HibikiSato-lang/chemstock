@@ -68,13 +68,14 @@ Flow starting point（▶の起点）は **login** に設定。
 | 起点フレーム | トリガー要素 | インタラクション | 遷移先 |
 |---|---|---|---|
 | search | 「在庫状況を表示」 | Navigate to | **list** |
-| search | 「（レガシー: 部屋別在庫）」 | Navigate to | **roomid** |
 | list | テーブルの各行 | Navigate to | **detail** |
 | list | 「← 在庫検索に戻る」 | Navigate to | **search** |
 | detail | 「⚙ 変更」ボタン | **Open overlay** | 下限値変更ダイアログ |
 | detail | 「← 在庫一覧に戻る」 | Navigate to | **list** |
 | 下限値変更ダイアログ | 「保存」／「キャンセル」 | Close overlay | （detailに戻る） |
 | roomid | 「← 在庫検索に戻る」 | Navigate to | **search** |
+
+`roomid`は旧画面の参照用フレームで、現行の検索画面からは配線しない。直接URLで開く実装を残す場合も、認可済みの研究室以外は表示しない。
 
 ---
 

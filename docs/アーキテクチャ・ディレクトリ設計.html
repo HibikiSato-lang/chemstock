@@ -500,37 +500,40 @@
     participant RPC as PostgreSQL RPC
     participant DB as Database
     User->>UI: 数量・実操作者名を入力
-    UI->>API: POST movement + requestId
+    UI->>API: POST movement + Idempotency-Key
     API->>Auth: セッションとroomスコープ取得
     API->>UC: CommandとActorを渡す
     UC->>UC: 入力・権限・業務前提を検証
     UC->>Repo: registerMovement
     Repo->>RPC: セッション付きでRPC実行
-    RPC->>DB: 行ロック・在庫更新・履歴追加・通知判定
+    RPC->>DB: 指定数量用の共通ロックを取得
+    RPC->>DB: 再送キーを確保・照合（同一要求なら保存結果）
+    RPC->>DB: 在庫行ロック・在庫更新（トリガーで全室再判定）・履歴追加
+    RPC->>DB: 成功結果を同じトランザクションに保存
     DB-->>RPC: 更新結果
     RPC-->>Repo: Result
     Repo-->>UC: Result
     UC-->>API: DTOまたはDomain Error
     API-->>UI: HTTP Response</code></pre>
-      <p>Route HandlerはHTTP変換に限定し、在庫不足や操作可能範囲などの判断を持たない。DB RPCは同時更新に耐える最終防衛線として行ロック、制約、原子性を保証する。</p>
+      <p>Route HandlerはHTTP変換に限定し、在庫不足や操作可能範囲などの判断を持たない。DB RPCは行ロック、制約、原子性を保証する。指定数量に影響するCommandは共通ロック、再送キー、対象行の順に取得し、異なる研究室からの同時更新も順番に合算・通知判定する。すべての状態変更Commandで再送キーと入力をDB内で照合する。</p>
 
       <h3>Query</h3>
-      <p>一覧・詳細・グラフはQuery Serviceから用途別DTOを返す。書き込み用Aggregateを毎回復元する必要はない。ただしRLSを必ず通し、研究室ユーザーへ指定数量関連フィールドを返さない。</p>
+      <p>一覧・詳細・グラフはQuery Serviceから用途別DTOを返す。書き込み用Aggregateを毎回復元する必要はない。研究室別の直接参照にはRLSを通し、指定数量の全室集計・通知・法令値はDB内でも管理者を確認するQuery RPCから取得する。研究室ユーザーへ指定数量関連フィールドを返さない。</p>
 
       <h2 id="database">10. DBとの責務分担</h2>
       <table>
         <thead><tr><th>責務</th><th>TypeScript側</th><th>PostgreSQL側</th></tr></thead>
         <tbody>
           <tr><td>入力表現</td><td>Command、値オブジェクト、形式検証</td><td>型、NOT NULL、CHECK制約</td></tr>
-          <tr><td>認可</td><td>ユースケース実行可否と返却項目</td><td>RLSによる迂回防止</td></tr>
+          <tr><td>認可</td><td>ユースケース実行可否と返却項目</td><td>表・列権限、研究室別SELECTのRLS、権限付きRPC内での<code>auth.uid()</code>による所属・ロール再確認</td></tr>
           <tr><td>在庫整合性</td><td>在庫不足などをDomain Errorとして表現</td><td>行ロック、負数防止、同一トランザクション</td></tr>
           <tr><td>履歴・監査</td><td>必要な理由・before/afterを要求</td><td>在庫・履歴・監査を原子的に保存</td></tr>
-          <tr><td>指定数量</td><td>管理者向けユースケースと表示文脈</td><td>DB値による集計、重複通知抑止</td></tr>
+          <tr><td>指定数量</td><td>管理者向けユースケースと表示文脈</td><td>共通ロック取得後の全室合算、重複通知抑止</td></tr>
           <tr><td>アプリ内通知</td><td>管理者向け表示、未確認件数、状態遷移</td><td>超過判定と通知作成を同一トランザクションで実行</td></tr>
         </tbody>
       </table>
       <div class="warning">
-        <strong>重要：</strong>PostgreSQLのRPC定義は<code>supabase/migrations/</code>へ置く。ユーザーAPIでservice roleを使ってRLSを迂回しない。指定数量通知のための外部メール基盤は設けない。
+        <strong>重要：</strong>PostgreSQLのRPC定義は<code>supabase/migrations/</code>へ置く。公開RPCは<code>SECURITY INVOKER</code>、権限昇格する実装と全室集計ビューはData API非公開の<code>private</code>スキーマに置き、実装内でも認可する。直接DMLと不要なSELECT・EXECUTEを取り消す。ユーザーAPIでservice roleを使ってRLSを迂回しない。指定数量通知のための外部メール基盤は設けない。
       </div>
 
       <h2 id="testing">11. テスト配置</h2>
@@ -539,7 +542,7 @@
         <tbody>
           <tr><td>Domain単体</td><td><code>modules/*/domain/*.test.ts</code></td><td>数量、状態遷移、指定数量判定</td></tr>
           <tr><td>Application単体</td><td><code>modules/*/application/*.test.ts</code></td><td>Fake Portを使った認可、エラー変換、監査要求</td></tr>
-          <tr><td>DB統合</td><td><code>supabase/tests/</code></td><td>RPC原子性、競合、CHECK、RLSマトリクス</td></tr>
+          <tr><td>DB統合</td><td><code>supabase/tests/</code></td><td>RPC原子性、異なる研究室の同時入庫と通知の競合、CHECK、RLS・列権限・関数EXECUTEのマトリクス</td></tr>
           <tr><td>API統合</td><td>Route/APIテスト</td><td>認証、入力検証、エラーコード、非公開フィールド</td></tr>
           <tr><td>E2E</td><td><code>tests/e2e/</code></td><td>スマホ幅の主要フロー、取消、通知、管理者スコープ</td></tr>
         </tbody>

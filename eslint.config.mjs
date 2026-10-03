@@ -10,6 +10,7 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  { ignores: [".next/**", "docs/ui-mockup/figma-plugin/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 

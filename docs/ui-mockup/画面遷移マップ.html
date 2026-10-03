@@ -30,6 +30,19 @@
   }
   h1{font-size:20px;margin-bottom:4px;}
   .lead{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7;}
+  .current-panel{background:#fff;border:2px solid var(--teal);border-radius:12px;padding:20px;margin:20px 0 28px;box-shadow:0 3px 12px rgba(33,82,63,.08);}
+  .current-panel h2{font-size:19px;color:var(--teal-dark);margin:0 0 8px;}
+  .current-panel p{font-size:13px;line-height:1.7;color:var(--text);margin:0 0 12px;}
+  .current-status{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;}
+  .current-status span{font-size:11px;font-weight:700;border-radius:20px;padding:4px 10px;background:#e5f4eb;color:#205b41;}
+  .current-status span.pending{background:#fff2d9;color:#855610;}
+  .current-flows{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0;}
+  .current-flows div{background:#f2f8f4;border:1px solid var(--line);border-radius:8px;padding:12px;min-height:94px;font-size:12px;line-height:1.55;}
+  .current-flows strong{display:block;font-size:13px;margin-bottom:5px;color:var(--teal-dark);}
+  .current-panel a{font-weight:700;color:var(--teal-dark);}
+  .reference-note{font-size:12px;line-height:1.7;color:var(--muted);background:#f9fbfa;border:1px dashed var(--line-strong);padding:10px 13px;border-radius:8px;margin:20px 0 6px;}
+  @media(max-width:800px){.current-flows{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:480px){body{padding:16px}.current-flows{grid-template-columns:1fr}.current-panel{padding:16px}}
   .badge-new{display:inline-block;background:#fff3e0;color:var(--new);border:1px solid var(--new);
     border-radius:3px;font-size:10px;padding:0 4px;margin-left:4px;vertical-align:1px;}
 
@@ -187,7 +200,7 @@
 </p>
 
 <div class="legend">
-  <span class="li"><span class="sw existing"></span>既存（変更なし）</span>
+  <span class="li"><span class="sw existing"></span>既存画面（所属研究室の表示を修正）</span>
   <span class="li"><span class="sw new"></span><span class="cat new" style="border:none;background:none;padding:0">新規</span> 今回追加</span>
   <span class="li"><span class="sw dialog"></span>ダイアログ（画面遷移なし）</span>
   <span class="li"><span class="sw dx"></span>DXコア（指定数量・欠品予測）</span>
@@ -195,6 +208,20 @@
   <span class="di"><span class="ln">▶</span>主遷移</span>
   <span class="di"><span class="ln dash">⇢</span>戻る／ログアウト／将来</span>
 </div>
+
+<section class="current-panel" id="current-implementation" aria-labelledby="current-title">
+  <h2 id="current-title">現在の実装済み操作フロー（2026-10-03）</h2>
+  <div class="current-status"><span>コード実装・ローカル検証済み</span><span class="pending">予測方式は再検討中</span><span class="pending">実Supabaseの通し確認前</span><span class="pending">リリース判定前</span></div>
+  <p>今回追加した画面と処理を、実際の操作順にまとめました。下のスマホ図は設計時の画面案で、現在の文言や遷移と差があります。チームへの説明には、詳細ガイドと操作できるプレビューを使ってください。</p>
+  <div class="current-flows">
+    <div><strong>① 入出庫・履歴</strong>ホーム → 溶媒選択 → 数量・実操作者 → 更新後残量の確認 → 保存 → 履歴／訂正・取消</div>
+    <div><strong>② 欠品予測 F2</strong>ホームの在庫お知らせ → 詳細 → グラフの下限線・予測日。研究室の在庫に限定</div>
+    <div><strong>③ 指定数量 F1</strong>管理タブの未確認件数 → 通知一覧 → 現在の合算倍率 → 確認済み・対応済み</div>
+    <div><strong>④ 溶媒・設定管理</strong>管理対象の追加／再開。全体管理者はマスタの法令値と限定設定も変更</div>
+  </div>
+  <p><a href="../チーム共有_実装機能ガイド.html">チーム共有用の操作フローを開く →</a>　／　<a href="../欠品予測_計算方式レビュー.md">予測方式の検討を見る →</a>　／　<a href="http://localhost:3000/preview" target="_blank" rel="noopener noreferrer">ローカルの操作プレビューを開く →</a>（リポジトリで <code>npm run dev</code> を実行）</p>
+</section>
+<p class="reference-note">以下は設計時に作成した静的な画面遷移図です。追加機能の現在の実装状況と正確な操作順は、上の「現在の実装済み操作フロー」と共有ガイドを参照してください。</p>
 
 <!-- ========================================================= -->
 <!-- ① 入口（ログイン → ホーム → 各フローへ分岐）               -->
@@ -212,8 +239,8 @@
           <div class="center" style="font-size:22px;font-weight:800;color:var(--teal-dark);">ChemStock</div>
           <div class="center note">研究室単位の共有アカウントでログイン</div>
           <div>
-            <span class="label">研究室 / 溶媒庫</span>
-            <div class="select" style="width:100%;margin-top:4px;">溶媒庫（管理者）</div>
+            <span class="label">共有アカウント</span>
+            <div class="select" style="width:100%;margin-top:4px;">山田研（溶媒庫管理）</div>
           </div>
           <div>
             <span class="label">パスワード</span>
@@ -238,8 +265,8 @@
           </div>
           <div class="banner">
             <div class="b-ttl">⚠ 残量低下のお知らせ</div>
-            <div class="b-row">アセトン（溶媒庫）残量 2.0 L ＞</div>
-            <div class="b-row">トルエン（A部屋）残量 1.5 L ＞</div>
+            <div class="b-row">アセトン（山田研）残量 2.0 L ＞</div>
+            <div class="b-row">トルエン（山田研）残量 1.5 L ＞</div>
           </div>
           <div style="height:2px"></div>
           <div class="bigcard">溶媒の登録・使用</div>
@@ -265,7 +292,7 @@
     <div class="origin ext">→ <b>③在庫閲覧フロー</b><br>の「在庫検索」へ</div>
 
     <div class="arrow dashed"><span class="lbl">お知らせ行タップ</span><span class="ln"></span></div>
-    <div class="origin ext">⇢ <b>⑤管理フロー</b><br>の「通知一覧」へ</div>
+    <div class="origin ext">⇢ <b>③在庫閲覧フロー</b><br>の「詳細情報」へ</div>
 
     <div class="arrow dashed"><span class="lbl">ログアウト</span><span class="ln"></span></div>
     <div class="origin ext">⇢ <b>ログイン</b>へ戻る</div>
@@ -279,7 +306,7 @@
 <!-- ========================================================= -->
 <div class="flow">
   <div class="flow-title">② ✏️ 登録・使用フロー（入出庫の記録 → 履歴 → 取消／編集）</div>
-  <div class="flow-desc">既存の入出庫（残量調整→数量入力→確認・実行→完了）はそのまま。<span class="badge-new">★新規</span>で「履歴」導線を追加し、履歴の近くに取消・編集を置く。取消・編集は<strong>物理削除せず</strong>実操作者名・理由を入力 → 在庫再計算＋監査記録。</div>
+  <div class="flow-desc">入出庫の主要遷移を維持し、対象研究室はログインアカウントから決める。研究室・溶媒庫管理アカウントは所属研究室だけを操作し、全体管理者のみ研究室を選択する。<span class="badge-new">★新規</span>で履歴導線を追加し、取消・編集は<strong>物理削除せず</strong>実操作者名・理由を入力 → 在庫再計算＋監査記録。</div>
 
   <!-- 主線：入出庫（既存） -->
   <div class="flow-row">
@@ -292,12 +319,11 @@
             <span class="ttl">残量調整</span>
             <span class="icons"><span class="txtlink">🕘 履歴</span> <svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
           </div>
-          <span class="label">○部屋選択</span>
-          <div class="card radio-list"><span class="sel">溶媒庫</span><span>学生実験室</span><span>A部屋</span></div>
+          <div class="card">研究室：<b>山田研</b><br><small>ログインアカウントの所属から自動表示</small></div>
           <span class="label">○溶媒選択</span>
           <div class="card radio-list"><span class="sel">メタノール</span><span>エタノール</span><span>アセトン</span></div>
           <div class="center"><span class="btn">確認画面</span></div>
-          <p class="note">※右上「🕘 履歴」から入出庫履歴一覧へ（★新規）。</p>
+          <p class="note">※全体管理者のみ研究室を選択。右上「🕘 履歴」から入出庫履歴一覧へ。</p>
           <div class="spacer"></div>
         </div>
         <div class="tabbar">
@@ -319,7 +345,7 @@
         <div class="screen">
           <div class="hdr"><span class="ttl">数量入力</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
           <a class="back">← 残量調整に戻る</a>
-          <div class="card" style="font-size:12px;">対象：<b>溶媒庫／メタノール</b></div>
+          <div class="card" style="font-size:12px;">対象：<b>山田研／メタノール</b></div>
           <div><span class="label">区分</span>
             <div style="margin-top:4px;font-size:12px;">☑ 追加する　☐ 使用する</div></div>
           <div><span class="label">数量</span>
@@ -350,7 +376,7 @@
           <div class="hdr"><span class="ttl">確認</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
           <a class="back">← 修正する</a>
           <div class="card" style="font-size:12px;line-height:2;">
-            部屋：<b>溶媒庫</b><br>溶媒：<b>メタノール</b><br>区分：<b>追加</b><br>変量：<b>＋3.5 L</b><br>使用者：<b>学生A</b>
+            研究室：<b>山田研</b><br>溶媒：<b>メタノール</b><br>区分：<b>追加</b><br>変量：<b>＋3.5 L</b><br>使用者：<b>学生A</b>
           </div>
           <p class="note">この内容で在庫を更新します。よろしいですか？</p>
           <div class="center"><span class="btn">実行する</span></div>
@@ -377,7 +403,7 @@
           <div style="height:20px"></div>
           <div class="done-ic">✓</div>
           <div class="center" style="font-weight:700;font-size:15px;">登録しました</div>
-          <div class="card center" style="font-size:12px;">溶媒庫／メタノール<br><b>＋3.5 L</b>（現在 36.0 L）</div>
+          <div class="card center" style="font-size:12px;">山田研／メタノール<br><b>＋3.5 L</b>（現在 36.0 L）</div>
           <div class="center" style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
             <span class="btn block">ホームに戻る</span>
             <span class="btn ghost block">続けて操作する</span>
@@ -411,7 +437,7 @@
         <div class="screen">
           <div class="hdr"><span class="ttl">入出庫履歴</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
           <a class="back">← 残量調整に戻る</a>
-          <div><span class="select">部屋：すべて</span> <span class="select">溶媒：すべて</span></div>
+          <div><span class="label">研究室：山田研</span> <span class="select">溶媒：すべて</span></div>
           <table>
             <tr><th>日付</th><th>溶媒</th><th>変量</th><th>使用者</th><th></th></tr>
             <tr><td>10/9</td><td>メタノール</td><td>＋3.0 L</td><td>学生A</td><td><span class="btn small ghost">編集</span> <span class="btn small ghost">取消</span></td></tr>
@@ -440,7 +466,7 @@
       <div class="phone dialog">
         <div class="screen">
           <div class="hdr"><span class="ttl">入出庫履歴</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
-          <div><span class="select">部屋：すべて</span> <span class="select">溶媒：すべて</span></div>
+          <div><span class="label">研究室：山田研</span> <span class="select">溶媒：すべて</span></div>
           <table>
             <tr><th>日付</th><th>溶媒</th><th>変量</th><th></th></tr>
             <tr><td>10/9</td><td>メタノール</td><td>＋3.0 L</td><td>…</td></tr>
@@ -458,7 +484,7 @@
         <div class="overlay">
           <div class="modal">
             <div class="m-ttl">この記録を取り消しますか？</div>
-            <div class="target"><b>10/7　アセトン　−1.0 L</b><br>使用者：学生B ／ 溶媒庫</div>
+            <div class="target"><b>10/7　アセトン　−1.0 L</b><br>使用者：学生B ／ 山田研</div>
             <div><span class="label">実操作者名<span class="req">必須</span></span>
               <div class="field" style="margin-top:3px;">氏名を入力</div></div>
             <div><span class="label">取消理由<span class="req">必須</span></span>
@@ -544,7 +570,7 @@
 <!-- ========================================================= -->
 <div class="flow">
   <div class="flow-title">③ 🔍 在庫閲覧フロー（検索 → 一覧 → 詳細＋下限設定）</div>
-  <div class="flow-desc">在庫検索→一覧→詳細は既存のまま。詳細に「下限値」行を1行追加<span class="badge-new">★新規</span>し、変更はダイアログ（画面遷移なし）。<code>/inventory/[roomId]</code> は本線未リンクのレガシー。</div>
+  <div class="flow-desc">在庫検索→一覧→詳細の遷移を維持する。研究室・溶媒庫管理アカウントは所属研究室の在庫だけを表示し、全体管理者のみ研究室を選択する。詳細に「下限値」行を1行追加<span class="badge-new">★新規</span>し、変更はダイアログ（画面遷移なし）。<code>/inventory/[roomId]</code> は本線未リンクのレガシー。</div>
   <div class="flow-row">
 
     <!-- 在庫検索 -->
@@ -553,12 +579,11 @@
       <div class="phone">
         <div class="screen">
           <div class="hdr"><span class="ttl">在庫検索</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
-          <span class="label">部屋で絞り込み</span>
-          <div class="select" style="width:100%;">すべての部屋</div>
+          <div class="card">研究室：<b>山田研</b><br><small>ログインアカウントの所属から自動表示</small></div>
           <span class="label">溶媒で絞り込み</span>
           <div class="select" style="width:100%;">すべての溶媒</div>
           <div class="center"><span class="btn">在庫状況を表示</span></div>
-          <p class="note">※プルダウンで部屋・溶媒を選択して一覧へ。</p>
+          <p class="note">※所属研究室を固定し、溶媒で絞り込んで一覧へ。全体管理者のみ研究室を選択。</p>
           <div class="spacer"></div>
         </div>
         <div class="tabbar">
@@ -580,7 +605,7 @@
         <div class="screen">
           <div class="hdr"><span class="ttl">在庫一覧</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
           <a class="back">← 在庫検索に戻る</a>
-          <div class="seg"><span class="on">部屋別</span><span>溶媒別</span></div>
+          <div class="card" style="font-size:12px;">研究室：山田研</div>
           <table>
             <tr><th>溶媒</th><th>残量</th><th></th></tr>
             <tr><td>メタノール</td><td>36.0 L</td><td>＞</td></tr>
@@ -588,7 +613,7 @@
             <tr><td>エタノール</td><td>18.5 L</td><td>＞</td></tr>
             <tr><td>トルエン</td><td>1.5 L ⚠</td><td>＞</td></tr>
           </table>
-          <p class="note">※行タップで詳細情報へ。⚠ は下限割れ。</p>
+          <p class="note">※所属研究室の行だけを表示。行タップで詳細情報へ。⚠ は下限割れ。</p>
           <div class="spacer"></div>
         </div>
         <div class="tabbar">
@@ -610,7 +635,7 @@
         <div class="screen">
           <div class="hdr"><span class="ttl">詳細情報</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
           <a class="back">← 在庫一覧に戻る</a>
-          <div class="center" style="font-weight:700;font-size:14px;">溶媒庫<br>メタノール</div>
+          <div class="center" style="font-weight:700;font-size:14px;">山田研<br>メタノール</div>
           <table>
             <tr><td>CAS番号</td><td>67-56-1</td></tr>
             <tr><td>分子式</td><td>CH₃OH</td></tr>
@@ -641,7 +666,7 @@
       <div class="phone dialog">
         <div class="screen">
           <div class="hdr"><span class="ttl">詳細情報</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
-          <div class="center" style="font-weight:700;font-size:14px;">溶媒庫／メタノール</div>
+          <div class="center" style="font-weight:700;font-size:14px;">山田研／メタノール</div>
           <table><tr><td>下限値</td><td>5.0 L</td></tr></table>
           <div class="spacer"></div>
         </div>
@@ -655,10 +680,10 @@
         <div class="overlay">
           <div class="modal">
             <div class="m-ttl neutral">在庫下限値を変更</div>
-            <div class="target">メタノール（溶媒庫）<br>現在の下限：<b>5.0 L</b></div>
+            <div class="target">メタノール（山田研）<br>現在の下限：<b>5.0 L</b></div>
             <div><span class="label">新しい下限値<span class="req">必須</span></span>
               <div class="field filled" style="margin-top:3px;">8.0 L</div></div>
-            <p class="note">※変更は <code>inventory.low_stock_threshold</code> を更新し監査記録。下回ると通知対象。</p>
+            <p class="note">※変更は <code>inventory.low_stock_threshold</code> を更新し監査記録。下限割れは画面の状態表示のみ。</p>
             <div class="m-actions"><span class="btn ghost">キャンセル</span><span class="btn">保存</span></div>
           </div>
         </div>
@@ -676,7 +701,7 @@
       <div class="phone legacy">
         <div class="screen">
           <div class="hdr"><span class="ttl">部屋別在庫</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
-          <div class="card" style="font-size:11px;color:var(--muted);">※本線からのリンクなし。直接URL用の旧画面。</div>
+          <div class="card" style="font-size:11px;color:var(--muted);">※本線からのリンクなし。直接URL用の旧画面。所属研究室以外の参照は不可。</div>
           <table>
             <tr><th>溶媒</th><th>残量</th></tr>
             <tr><td>メタノール</td><td>36.0 L</td></tr>
@@ -915,7 +940,7 @@
           <div class="hdr"><span class="ttl">管理者画面</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
           <a class="back">← 管理に戻る</a>
           <div class="card" style="padding:0;">
-            <div class="list-item"><span>🔔 通知一覧　<small style="color:#b45309;">未確認 2</small></span><span class="chev">＞</span></div>
+            <div class="list-item"><span>🔔 通知一覧　<small style="color:#b45309;">未確認 1</small></span><span class="chev">＞</span></div>
             <div class="list-item"><span>📊 利用履歴分析</span><span class="chev">＞</span></div>
             <div class="list-item"><span>🧪 溶媒マスタ管理</span><span class="chev">＞</span></div>
             <div class="list-item"><span>⚙️ 各種設定</span><span class="chev">＞</span></div>
@@ -947,12 +972,11 @@
         <div class="screen">
           <div class="hdr"><span class="ttl">通知一覧</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
           <a class="back">← 管理者画面に戻る</a>
-          <div class="seg"><span class="on">未確認 2</span><span>確認済</span><span>対応済</span></div>
+          <div class="seg"><span class="on">未確認 1</span><span>確認済</span><span>対応済</span></div>
           <div class="card" style="padding:0;">
-            <div class="list-item"><span>⚠ アセトン 下限割れ (2.0 L)</span><span class="pill warn">残量</span></div>
             <div class="list-item"><span>⚠ 溶媒庫 指定数量 1.02倍</span><span class="pill dx">指定数量超過</span></div>
           </div>
-          <p class="note">※未確認／確認済／対応済で運用。研究室ユーザーには非表示。</p>
+          <p class="note">※未確認／確認済／対応済で運用。下限割れは画面の状態表示のみで、通知一覧には入らない。研究室ユーザーには非表示。</p>
           <div class="spacer"></div>
         </div>
         <div class="tabbar">
@@ -1053,7 +1077,7 @@
 
     <!-- 指定数量モニター -->
     <div class="shot">
-      <div class="caption">指定数量モニター <span class="cat dx">DXコア</span> <small>／将来対応</small></div>
+      <div class="caption">指定数量モニター <span class="cat dx">DXコア</span> <small>／現行版は実装済み・実環境試験前</small></div>
       <div class="phone dx">
         <div class="screen">
           <div class="hdr"><span class="ttl">指定数量モニター</span><span class="icons"><svg class="home-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span></div>
@@ -1065,7 +1089,7 @@
             <div class="note" style="margin-top:4px;">0.8以上 → 接近表示（通知なし） / 1.0以上 → アプリ内通知</div>
           </div>
           <div class="card" style="font-size:11px;">Σ(amount ÷ designated_quantity)<br>＝溶媒庫の在庫のみ合算</div>
-          <p class="note">※DXコア／将来対応。1.0以上の指定数量超過はアプリ内通知一覧へ。研究室ユーザー非表示。</p>
+          <p class="note">※現行版は実装済み・実環境試験前。1.0以上の指定数量超過はアプリ内通知一覧へ。研究室ユーザー非表示。</p>
           <div class="spacer"></div>
         </div>
         <div class="tabbar">
@@ -1078,7 +1102,7 @@
       </div>
     </div>
   </div>
-  <p class="note" style="margin-left:12px;">※通知一覧の「指定数量通知行」からも指定数量モニターへ遷移（将来対応）。指定数量の合算は <code>rooms.kind='溶媒庫'</code> の在庫のみが対象。</p>
+  <p class="note" style="margin-left:12px;">※現行版では通知一覧から現在の指定数量モニターへ移動できる。指定数量は単一の溶媒庫内にある全研究室の利用中在庫を合算する。</p>
 </div>
 
 </body>

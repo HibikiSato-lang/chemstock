@@ -276,12 +276,15 @@
       残量推移・下限到達目安</a></li>
       </ul></li>
       <li><a href="#7-db更新の原子性" id="toc-7-db更新の原子性">7.
-      DB更新の原子性</a></li>
+      DB更新の原子性</a>
+      <ul>
+      <li><a href="#7-1-指定数量判定の同時更新" id="toc-7-1-指定数量判定の同時更新">7-1. 指定数量判定の同時更新</a></li>
+      </ul></li>
       <li><a href="#8-api設計から必要となるデータ設計の補強"
       id="toc-8-api設計から必要となるデータ設計の補強">8.
       API設計から必要となるデータ設計の補強</a></li>
-      <li><a href="#9-未決定事項と暫定値"
-      id="toc-9-未決定事項と暫定値">9. 未決定事項と暫定値</a></li>
+      <li><a href="#9-前提と未決定事項"
+      id="toc-9-前提と未決定事項">9. 前提と未決定事項</a></li>
       </ul>
     </aside>
     <main id="document-content">
@@ -294,7 +297,7 @@
       <h2 id="1-対象範囲">1. 対象範囲</h2>
       <h3 id="p0初回リリース対象">P0：初回リリース対象</h3>
       <ul>
-      <li>ログイン中アカウントと研究室・溶媒庫の紐付け</li>
+      <li>ログイン中アカウントと所属研究室の紐付け（溶媒庫は単一で、<code>rooms</code>の行としては持たない）</li>
       <li>在庫一覧・詳細・入出庫登録</li>
       <li>入出庫履歴の取消・訂正・監査</li>
       <li>有効な入出庫履歴から再構成する実績の残量推移</li>
@@ -366,7 +369,7 @@
       <tr>
       <td>単位</td>
       <td>APIは常に <code>solvents.base_unit</code>
-      の数値を入出力する。表示単位への変換は画面側</td>
+      の数値を入出力する。初回の基準単位はL。画面の1 galは3.8 L、1斗缶は18 Lとし、係数は<code>settings</code>から取得する。確定前に換算後のL値を表示する</td>
       </tr>
       <tr>
       <td>利用停止</td>
@@ -379,12 +382,11 @@
       </tr>
       <tr>
       <td>指定数量</td>
-      <td><code>rooms.kind='溶媒庫'</code>
-      の在庫のみ合算し、研究室ユーザーへは値も通知も返さない</td>
+      <td>単一の溶媒庫内にある全研究室の利用中在庫を合算し、研究室ユーザーへは値も通知も返さない。<code>rooms</code>に種別列は設けない</td>
       </tr>
       <tr>
       <td>指定数量通知の再発行</td>
-      <td>同一溶媒庫・同一種別の未対応通知がある間は抑止。対応済後は倍率が一度1.0未満に戻り、再び1.0以上になった時に新規通知を発行</td>
+      <td>単一溶媒庫の同一種別の未対応通知がある間は抑止。対応済後は倍率が一度1.0未満に戻り、再び1.0以上になった時に新規通知を発行</td>
       </tr>
       <tr>
       <td>下限到達日</td>
@@ -403,6 +405,8 @@
       <li>数量：JSON number、基準単位で小数第2位まで</li>
       <li>表示名・列挙値：APIでは安定した英語コードを返し、日本語表示はUIで変換する</li>
       </ul>
+      <p>初回リリースの状態・種別コードはDB保存値とAPI値を同じにする。履歴の <code>status</code> は <code>active</code>（有効）／<code>cancelled</code>（取消済）、通知の <code>type</code> は <code>designated_quantity_exceeded</code>（指定数量超過）、通知の <code>status</code> は <code>unread</code>（未確認）／<code>acknowledged</code>（確認済）／<code>resolved</code>（対応済）とする。日本語は画面の表示名であり、DBの検索条件・CHECK制約・APIの送受信には使わない。</p>
+      <p>画面は入力単位の数量に <code>settings.unit_gal_to_l=3.8</code> または <code>unit_tokan_to_l=18</code> を掛け、十進演算でLの小数第2位へ四捨五入してAPIへ送る。既存の「±1 gal」「±1 斗缶」ボタンも同じ係数を使う。丸めたL値が0以下、またはDBの数量範囲を超える場合は422とし、保存値を確定画面に表示する。設定が取得できない場合は換算入力を停止する。表示への逆換算にも同じ係数を使う。</p>
       <h3 id="3-2-成功応答">3-2. 成功応答</h3>
       <div class="sourceCode" id="cb2"><pre
       class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
@@ -450,7 +454,7 @@
       </tr>
       <tr>
       <td>409</td>
-      <td>在庫不足、取消済、バージョン競合、利用停止中</td>
+      <td>在庫不足、取消済、バージョン競合、利用停止中、<code>IDEMPOTENCY_KEY_REUSED</code></td>
       </tr>
       <tr>
       <td>422</td>
@@ -463,10 +467,9 @@
       </tbody>
       </table>
       <h3 id="3-4-重複実行防止">3-4. 重複実行防止</h3>
-      <p>在庫を変更するAPIは <code>Idempotency-Key: &lt;uuid&gt;</code>
-      を必須とする。
-      同じキーの再送は既存の処理結果（同一movementまたはaudit
-      ID）を返し、在庫と履歴を重複更新しない。</p>
+      <p>すべての状態変更API（POST・PATCHのCommand）は <code>Idempotency-Key: &lt;uuid&gt;</code> を必須とする。UIは1回の操作でUUIDを生成し、通信失敗後の再送では同じキーと同じ入力を使う。別の操作には新しいキーを使う。<code>meta.requestId</code> はHTTP試行ごとの追跡IDであり、再送キーとは別である。</p>
+      <p>DB内の <code>command_requests</code> は <code>(account_id, idempotency_key)</code> を一意とし、操作種別・対象ID・正規化した引数と成功結果のスナップショットを保持する。DB関数はセッションから操作者を認可した後、実際に受け取った引数から比較値を作り、同じトランザクションでキーを確保して業務更新と結果保存を行う。確定時には結果が必須となるよう、最終行を読み直す遅延制約トリガー等で未完成の要求記録を拒否する。クライアント申告のハッシュだけを信用しない。先行処理中の同一キーは一意制約で確定まで待ち、別SQL文で保存済み結果を読み直す。同じキー・同じ操作と入力なら現在の権限を再確認して当初の成功結果を返し、在庫・履歴・監査・通知を再更新しない。同じキーで操作・対象・入力が異なれば <code>409 IDEMPOTENCY_KEY_REUSED</code> とする。失敗時はキー確保もロールバックし、再送時に改めて検証する。</p>
+      <p>指定数量に関わるCommandは、認可後に§7-1の共通ロックを取得してからキーを確保し、続いて対象行をロックする。その他のCommandは認可後にキーを確保してから対象行をロックする。この順序を全てのDB関数で統一する。<code>command_requests</code> は直接SELECT・DMLを許可せず、結果の再取得も認可付きCommand RPC内だけで行う。</p>
       <h3 id="3-5-入力検証">3-5. 入力検証</h3>
       <table>
       <thead>
@@ -494,7 +497,19 @@
       </tr>
       <tr>
       <td><code>occurredAt</code></td>
-      <td>任意、既定値はサーバー時刻、未来日時は不可</td>
+      <td>実際の入出庫日時。任意、既定値はサーバー時刻、未来日時と対象在庫の <code>opened_at</code> より前は不可。DB登録日時の <code>created_at</code> とは分けて保存する</td>
+      </tr>
+      <tr>
+      <td><code>threshold</code>・指定数量</td>
+      <td>在庫下限は0以上またはNULL、指定数量は0より大きい値またはNULL。NULLは未設定であり0で代用しない</td>
+      </tr>
+      <tr>
+      <td><code>warning_ratio</code>・<code>forecast_window_days</code></td>
+      <td>前者は0より大きく1より小さい有限小数、後者は1〜365の整数。設定変更時はDBのCommandでも検証し、不正値を422で拒否する</td>
+      </tr>
+      <tr>
+      <td>単位換算設定</td>
+      <td>初回は <code>unit_gal_to_l=3.8</code>、<code>unit_tokan_to_l=18</code> に固定。一般の設定変更APIからの変更は422で拒否し、管理用移行だけで変更する</td>
       </tr>
       </tbody>
       </table>
@@ -539,14 +554,14 @@
       <tr>
       <td>指定数量の倍率・内訳</td>
       <td>×</td>
-      <td>自分の溶媒庫</td>
-      <td>全溶媒庫</td>
+      <td>溶媒庫全体（全研究室の合算）</td>
+      <td>溶媒庫全体（全研究室の合算）</td>
       </tr>
       <tr>
       <td>指定数量通知の参照・状態変更</td>
       <td>×</td>
-      <td>自分の溶媒庫</td>
-      <td>全溶媒庫</td>
+      <td>全件</td>
+      <td>全件</td>
       </tr>
       <tr>
       <td>溶媒マスタ参照</td>
@@ -569,10 +584,8 @@
       </tbody>
       </table>
       <ul>
-      <li><code>lab</code> と <code>solvent_room_admin</code>
-      の参照・更新範囲は <code>accounts.room_id</code>
-      から導出する。リクエストの <code>roomId</code>
-      だけを信頼しない。</li>
+      <li><code>rooms</code> の1行は溶媒庫内の1研究室を表し、溶媒庫そのものの行は作らない。<code>lab</code> と <code>solvent_room_admin</code> の <code>accounts.room_id</code> は所属研究室のIDを必須とする。</li>
+      <li>両ロールの研究室別在庫・履歴の参照と更新は所属研究室に限る。リクエストの <code>roomId</code> だけを信頼しない。<code>solvent_room_admin</code> は所属研究室に関係なく、単一溶媒庫の指定数量と通知を全件扱える。</li>
       <li><code>global_admin</code> の <code>accounts.room_id</code> は
       <code>NULL</code> とする。</li>
       <li>指定数量系エンドポイントは <code>lab</code>
@@ -583,6 +596,21 @@
       <li><code>GET /operator-suggestions</code>
       は自室の履歴から取得し、他室の実操作者名を返さない。</li>
       </ul>
+      <h3 id="4-1-db権限境界">4-1. DBの権限境界</h3>
+      <p><code>anon</code>・<code>authenticated</code> はアプリ内の3ロールと別のDBロールである。同じ <code>authenticated</code> で接続する利用者を、<code>accounts.id = auth.uid()</code> から判定する。Route Handlerのチェックに加え、表の権限・RLSと、権限昇格するDB関数内の再認可で境界を守る。</p>
+      <table>
+      <thead><tr><th>対象</th><th>クライアントの直接アクセス</th><th>APIで必要なアクセス</th></tr></thead>
+      <tbody>
+      <tr><td><code>rooms</code>、<code>inventory</code>、<code>inventory_logs</code></td><td>SELECTのみ付与し、RLSで研究室・溶媒庫管理は <code>accounts.room_id</code> の行、全体管理は全行。履歴は関連在庫の所属で判定する。未認証は不可</td><td>一覧・詳細・実操作者候補も同じ研究室範囲で取得</td></tr>
+      <tr><td><code>accounts</code></td><td>SELECTは自分の行だけ。変更は直接許可しない</td><td><code>/me</code> とDB関数内の所属・ロール判定</td></tr>
+      <tr><td><code>solvents</code></td><td>認証済み全員への行SELECTポリシーを設け、非機密列だけを列単位でSELECT付与。表全体のSELECTは与えず、<code>designated_quantity</code> 等の指定数量関連列は直接読ませない。書き込みは不可</td><td>通常のマスタ参照は公開列。管理者の法令値参照・更新は認可付きRPC</td></tr>
+      <tr><td><code>settings</code>、<code>notifications</code>、<code>operation_audits</code>、<code>command_requests</code></td><td>直接SELECT・DMLを許可しない</td><td>換算値等の必要な設定だけを返す限定Query RPC、管理者向け通知・設定Query RPC、認可付きCommand RPC。内部状態の <code>dq_arm_over</code> と再送記録は直接返さない</td></tr>
+      <tr><td><code>private.designated_quantity_status</code></td><td>Data APIの公開スキーマに含めず、クライアントにSELECTを付与しない</td><td>内部の全室集計と、溶媒庫管理・全体管理に限定したQuery RPC</td></tr>
+      </tbody>
+      </table>
+      <p>業務表への直接INSERT・UPDATE・DELETEは <code>PUBLIC</code>・<code>anon</code>・<code>authenticated</code> から取り消す。入出庫・取消・訂正・通知対応・設定／溶媒マスタ変更は、公開スキーマの <code>SECURITY INVOKER</code> 入口RPCから、非公開 <code>private</code> スキーマの <code>SECURITY DEFINER</code> 実装を呼ぶ。後者は必ず <code>auth.uid()</code> から現在の <code>accounts.role</code>・<code>room_id</code> を読み、対象行の所属と操作種別を検証してから共通ロックと更新に進む。渡された <code>roomId</code> やロールを認可根拠にしない。RLSから <code>accounts</code> を参照する場合は、ポリシーの再帰を避ける内部ヘルパーで呼び出し元の <code>auth.uid()</code> を使う。関数所有者は必要な表権限に限定し、<code>search_path = ''</code> とスキーマ修飾を徹底する。</p>
+      <p>指定数量モニター・通知・管理者向け <code>GET /solvents</code> は、同じ仕組みのQuery RPCで管理者ロールをDB内でも確認する。欠品予測の <code>roomId</code> は絞り込み条件に過ぎず、DB関数が所属を再確認する。<code>private</code> はData APIの公開スキーマに加えない。<code>authenticated</code> に内部関数呼び出しに必要なスキーマUSAGEと個別EXECUTEだけを付与し、内部関数を直接呼ばれても同じ認可を行う。関数の既定のPUBLIC EXECUTEは取り消し、<code>anon</code>には実行権限を与えない。研究室向け応答・エラーには指定数量値、全室倍率、通知の有無を含めない。</p>
+      <p>権限とRLSの組み合わせ、ビュー所有者によるRLSの扱い、関数の実行権限は<a href="https://supabase.com/docs/guides/database/postgres/row-level-security">Supabase RLSガイド</a>・<a href="https://supabase.com/docs/guides/database/views">ビューの説明</a>・<a href="https://supabase.com/docs/guides/database/functions">DB関数の説明</a>に基づく。</p>
       <h2 id="5-api一覧">5. API一覧</h2>
       <h3 id="5-1-認証参照データ">5-1. 認証・参照データ</h3>
       <table>
@@ -598,14 +626,14 @@
       <tr>
       <td>GET</td>
       <td><code>/me</code></td>
-      <td>ログイン中アカウント、role、所属室</td>
+      <td>ログイン中アカウント、role、所属研究室（全体管理者はなし）</td>
       <td>全ロール</td>
       </tr>
       <tr>
       <td>GET</td>
       <td><code>/rooms</code></td>
-      <td>操作可能な部屋一覧</td>
-      <td>全ロール、通常は自室のみ</td>
+      <td>操作可能な研究室一覧（溶媒庫そのものは含めない）</td>
+      <td>研究室・溶媒庫管理は所属研究室のみ、全体管理は全研究室</td>
       </tr>
       <tr>
       <td>GET</td>
@@ -757,7 +785,7 @@
       <tr>
       <td>GET</td>
       <td><code>/admin/notification-summary</code></td>
-      <td>スコープ内の未確認件数</td>
+      <td>単一溶媒庫の未確認件数（両管理者で同じ値）</td>
       <td>同上</td>
       </tr>
       <tr>
@@ -775,7 +803,7 @@
       <tr>
       <td>PATCH</td>
       <td><code>/admin/settings/{key}</code></td>
-      <td>設定値変更と監査記録</td>
+      <td><code>warning_ratio</code>・<code>forecast_window_days</code>の変更と監査記録。換算係数と<code>dq_arm_over</code>は対象外</td>
       <td>全体管理者</td>
       </tr>
       </tbody>
@@ -818,12 +846,12 @@
       <ol type="1">
       <li>セッションと <code>accounts</code>
       から操作可否を確認する。</li>
+      <li>指定数量判定専用のトランザクション単位アドバイザリロックを取得する（<code>pg_advisory_xact_lock(1128813396, 1)</code>）。続いて§3-4の再送キーを確保または検証し、同一要求の再送なら保存結果を返す。</li>
       <li><code>inventory</code> 行を <code>FOR UPDATE</code>
       でロックする。</li>
       <li>数量と利用状態を検証する。</li>
-      <li><code>inventory.amount</code> を更新する。</li>
-      <li><code>inventory_logs</code> を登録する。</li>
-      <li>溶媒庫の場合は指定数量を再判定する。</li>
+      <li><code>inventory.amount</code> を更新する。同じUPDATE文のAFTERトリガーが、単一溶媒庫の全室合算と通知を再判定する。</li>
+      <li><code>inventory_logs</code> を登録し、同じトランザクションで成功結果を <code>command_requests</code> に保存する。</li>
       </ol>
       <p>研究室ユーザーへの応答に指定数量の倍率や通知発行有無を含めない。</p>
       <h3 id="6-2-履歴取消">6-2. 履歴取消</h3>
@@ -885,14 +913,11 @@
       は作成しない。</li>
       </ul>
       <h3 id="6-5-指定数量モニター">6-5. 指定数量モニター</h3>
-      <p><code>GET /api/v1/admin/designated-quantity?roomId={roomId}</code></p>
+      <p><code>GET /api/v1/admin/designated-quantity</code></p>
+      <p>溶媒庫は単一のため、研究室IDをクエリに受け取らず、全研究室の在庫を合算する。</p>
       <div class="sourceCode" id="cb9"><pre
       class="sourceCode json"><code class="sourceCode json"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;room&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;id&quot;</span><span class="fu">:</span> <span class="st">&quot;uuid&quot;</span><span class="fu">,</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;溶媒庫&quot;</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">},</span></span>
 <span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;totalRatio&quot;</span><span class="fu">:</span> <span class="fl">0.84</span><span class="fu">,</span></span>
 <span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;state&quot;</span><span class="fu">:</span> <span class="st">&quot;warning&quot;</span><span class="fu">,</span></span>
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;warningRatio&quot;</span><span class="fu">:</span> <span class="fl">0.8</span><span class="fu">,</span></span>
@@ -907,7 +932,7 @@
 <span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
 <span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;unconfiguredSolvents&quot;</span><span class="fu">:</span> <span class="ot">[]</span><span class="fu">,</span></span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;openNotificationCount&quot;</span><span class="fu">:</span> <span class="dv">2</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;openNotificationCount&quot;</span><span class="fu">:</span> <span class="dv">1</span></span>
 <span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
 <span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;meta&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
 <span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;requestId&quot;</span><span class="fu">:</span> <span class="st">&quot;uuid&quot;</span></span>
@@ -938,18 +963,21 @@
       </ul>
       <h3 id="6-7-残量推移下限到達目安">6-7. 残量推移・下限到達目安</h3>
       <p><code>GET /api/v1/inventories/{inventoryId}/trend?period=30d</code></p>
+      <p>APIは対象在庫・研究室の存在と閲覧権限を先に確認し、権限外または存在しないIDを404にする。欠品予測RPCの空結果は、認可済みの在庫について「予測できない」と解釈する。RPCも所属を再確認する。</p>
       <p>P0で実績の残量点列、下限値、平均出庫量、下限到達目安のフィールドを提供する。予測に必要な下限値はP0で設定できるようにする。</p>
       <p>応答には以下を含める。</p>
       <ul>
-      <li>期間内の有効な入出庫履歴から再構成した残量点列</li>
+      <li>初期在庫を起点として期間内の有効な入出庫履歴から再構成した残量点列</li>
       <li>現在残量と下限値</li>
       <li>直近 <code>forecast_window_days</code> の平均出庫量</li>
       <li>下限到達目安日、または表示不可理由</li>
       <li>表示不可理由は <code>no_outbound_history</code> /
       <code>threshold_not_set</code> /
-      <code>already_below_threshold</code> / <code>inactive</code>
+      <code>already_below_threshold</code> / <code>inactive</code> /
+      <code>beyond_horizon</code>（下限到達が365日超）
       とする</li>
       </ul>
+      <p>残量点列は <code>max(期間開始, inventory.opened_at)</code> に、<code>opening_amount</code> とその時刻より前の有効な入出庫差分の合計を開始残量として置く。記録開始前の点は返さない。期間内の有効な履歴は <code>occurred_at</code>（実際の入出庫日時）で配置し、同時刻なら <code>created_at</code>、<code>id</code> の順で安定して並べる。履歴がまだない在庫も初期在庫から現在まで水平な実績線を返す。予測の直近N日も <code>occurred_at</code> で判定する。後日登録・日時訂正はその発生日時の点と予測期間に反映し、<code>created_at</code> はDB記録日時として変更しない。<code>occurred_at</code> が <code>opened_at</code> より前の入出庫は422とする。</p>
       <h2 id="7-db更新の原子性">7. DB更新の原子性</h2>
       <p>以下は必ずDB関数または同一DBトランザクションで実行する。</p>
       <table>
@@ -990,10 +1018,13 @@
       </tr>
       <tr>
       <td>溶媒マスタ変更</td>
-      <td>マスタ更新、監査追加、指定数量を変更した場合の関連溶媒庫再判定</td>
+      <td>マスタ更新、監査追加、指定数量を変更した場合の単一溶媒庫の合算再判定</td>
       </tr>
       </tbody>
       </table>
+      <h3 id="7-1-指定数量判定の同時更新">7-1. 指定数量判定の同時更新</h3>
+      <p>単一溶媒庫の倍率と通知状態を変え得る書き込みは、すべて同じロックを最初に取得し、<code>READ COMMITTED</code> の同一トランザクションで更新と再判定を行う。対象は入出庫、履歴取消・訂正、在庫作成・数量編集・利用停止/再開・溶媒変更、溶媒マスタの指定数量値変更、通知状態変更、初期データ投入である。設定値 <code>dq_arm_over</code> は再判定処理だけが変更する。</p>
+      <p>異なる研究室の在庫行は互いの <code>FOR UPDATE</code> では直列化されない。共通ロック取得後に在庫を更新し、文単位の <code>AFTER</code> トリガーが確定済みの先行更新を含む全室合算を読み直す。指定数量値の変更も溶媒マスタのトリガーで判定する。公開API用DBロールの対象表への直接書き込みを禁止し、認可付きCommand RPCを通す。管理用の移行・投入処理も同じ手順に従う。詳細は<a href="DXコア機能_データ設計.md">データ設計 §2-2〜2-3</a>を参照する。</p>
       <h2 id="8-api設計から必要となるデータ設計の補強">8.
       API設計から必要となるデータ設計の補強</h2>
       <p>以下は実装前に <a href="ER図.md">ER図</a>
@@ -1009,25 +1040,35 @@
       <tbody>
       <tr>
       <td><code>accounts</code></td>
-      <td><code>id</code> を <code>auth.users.id</code> と紐付ける</td>
-      <td>セッションから所属室とroleを確定する</td>
+      <td><code>id</code> を <code>auth.users.id</code> と紐付け、roleに応じて <code>room_id</code> のNULL可否をCHECKで制約する</td>
+      <td>研究室・溶媒庫管理は所属研究室を必須とし、全体管理者は所属研究室を持たない。セッションから操作対象を確定する</td>
       </tr>
       <tr>
       <td><code>inventory_logs</code></td>
-      <td><code>created_by_account_id</code>、<code>occurred_at</code>、<code>request_id UNIQUE</code>、<code>updated_at</code>
+      <td><code>created_by_account_id</code>、<code>occurred_at</code>、<code>command_request_id</code>（FK・非一意）、<code>updated_at</code>
       を追加</td>
-      <td>共有アカウントと実操作者の両方、業務日時、再送安全性を保存する</td>
+      <td>共有アカウントと実操作者の両方、業務発生日時とDB記録日時、要求との対応を保存する。予測・推移は <code>occurred_at</code> を使う</td>
       </tr>
       <tr>
       <td><code>operation_audits</code></td>
-      <td><code>account_id</code>、<code>request_id UNIQUE</code>
+      <td><code>account_id</code>、<code>command_request_id</code>（FK・非一意）
       を追加し、<code>target_id</code> をtext型にする</td>
       <td>UUID対象と <code>settings.key</code>の両方を監査する</td>
+      </tr>
+      <tr>
+      <td><code>command_requests</code></td>
+      <td><code>id</code>、<code>account_id</code>、<code>idempotency_key</code>、<code>operation</code>、<code>target_id</code>、<code>arguments</code>（正規化済みJSONB）、<code>result</code>（成功結果JSONB）、<code>created_at</code>。<code>UNIQUE(account_id, idempotency_key)</code></td>
+      <td>Command全体の再送を一箇所で直列化し、同じキーの入力変更を拒否する。直接表アクセスを許可しない</td>
       </tr>
       <tr>
       <td><code>inventory</code></td>
       <td><code>last_updated</code> を更新時に必ず更新する</td>
       <td>競合検知と画面の最終更新表示に使う</td>
+      </tr>
+      <tr>
+      <td><code>inventory</code> の初期残高</td>
+      <td><code>opening_amount</code>・<code>opened_at</code> を追加し、確認済み初期在庫と記録開始時刻を設定する。初回リリース中の後続の数量変更は有効な履歴と対応させる</td>
+      <td>非ゼロの初期在庫から残量推移を再構成し、記録開始前の架空の推移を出さない</td>
       </tr>
       <tr>
       <td>外部キー</td>
@@ -1037,28 +1078,33 @@
       </tr>
       <tr>
       <td>列挙値</td>
-      <td>role、履歴状態、通知種別、通知状態にCHECK制約を追加</td>
-      <td>不正な状態をDBで防ぐ</td>
+      <td>role、履歴状態、通知種別、通知状態に§3-1の英語コードでCHECK制約を追加</td>
+      <td>不正な状態とDB/API間のコード不一致を防ぐ</td>
+      </tr>
+      <tr>
+      <td>数量・設定値</td>
+      <td>在庫量は0以上、下限は0以上またはNULL、指定数量は正数またはNULL、基準単位は初回リリースでLとする。設定変更RPCはキー別の型・範囲をDB内で検証する</td>
+      <td>不正な値による予測のゼロ除算、指定数量集計からの意図しない除外、負在庫を防ぐ</td>
       </tr>
       <tr>
       <td>RLS</td>
-      <td>研究室・溶媒庫・全体管理のポリシーを全対象テーブルに設定</td>
-      <td>APIを迂回したデータ参照・更新を防ぐ</td>
+      <td>参照を許可する表は§4-1のSELECTポリシー・列権限を設定。直接DMLは取り消し、非公開スキーマの権限付き関数内で所属・ロールを再確認する</td>
+      <td>APIや公開DBエンドポイントを迂回した参照・更新を防ぎ、全室集計は管理者に限定する</td>
       </tr>
       </tbody>
       </table>
-      <h2 id="9-未決定事項と暫定値">9. 未決定事項と暫定値</h2>
+      <h2 id="9-前提と未決定事項">9. 前提と未決定事項</h2>
       <table>
       <thead>
       <tr>
       <th>事項</th>
-      <th>本設計での暫定値</th>
+      <th>本設計での扱い</th>
       </tr>
       </thead>
       <tbody>
       <tr>
-      <td>研究室の保有を指定数量に含めるか</td>
-      <td>含めない。溶媒庫のみ</td>
+      <td>指定数量の集計対象</td>
+      <td>単一の溶媒庫内にある全研究室の在庫を合算する。研究室が居室・実験室で保管する分はシステム対象外。<code>rooms</code>には溶媒庫そのものの行を作らない</td>
       </tr>
       <tr>
       <td>指定数量通知の到達手段</td>

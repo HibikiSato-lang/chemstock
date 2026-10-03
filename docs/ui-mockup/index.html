@@ -137,7 +137,7 @@
 <h1>ChemStock 新UI案モックアップ</h1>
 <p class="lead">
   既存UI（ミントグリーン基調・濃緑ボタン・白カード）に<strong>下部タブバー（5タブ）を追加</strong>する案。
-  既存画面の中身は変更せず、<span class="badge-new">★新規</span> が今回の追加要素。<br>
+  既存画面の主要な遷移を維持し、研究室の選択・表示はアカウントの所属に合わせる。<span class="badge-new">★新規</span> が追加要素。<br>
   <strong>機能フローごとに画面を横並びにし、フレーム間の矢印＋ラベルで遷移（操作・タップ）を示す。</strong>
   緑のラベル付き <b style="color:var(--teal)">▶</b> が遷移の操作。破線の枠は分岐の起点（同じ画面から複数へ分岐）を表す。<br>
   遷移の全体像は <a href="../画面遷移図.md">画面遷移図.md</a>、各画面の仕様は <a href="../UI案.md">UI案.md</a> を参照。
@@ -163,8 +163,8 @@
           </div>
           <div class="banner">
             <div class="b-ttl">⚠ 残量低下のお知らせ</div>
-            <div class="b-row">アセトン（溶媒庫）残量 2.0 L ＞</div>
-            <div class="b-row">トルエン（A部屋）残量 1.5 L ＞</div>
+            <div class="b-row">アセトン（山田研）残量 2.0 L ＞</div>
+            <div class="b-row">トルエン（山田研）残量 1.5 L ＞</div>
           </div>
           <div style="height:6px"></div>
           <div class="bigcard">溶媒の登録・使用</div>
@@ -234,7 +234,7 @@
 <!-- ========================================================= -->
 <div class="flow">
   <div class="flow-title">✏️ 登録・使用フロー（入出庫の記録 → 履歴 → 取消／編集）</div>
-  <div class="flow-desc">履歴の近くに取消・編集を置く。取消・編集は<strong>物理削除せず</strong>、実操作者名・理由を入力 → 在庫再計算＋監査記録（<a href="../ER図.md">ER図</a> の <code>inventory_logs.status</code> / <code>operation_audits</code>）。</div>
+  <div class="flow-desc">研究室・溶媒庫管理アカウントは所属研究室だけを操作する。全体管理者は対象研究室を選んでから操作する。履歴の取消・編集は<strong>物理削除せず</strong>、実操作者名・理由を入力 → 在庫再計算＋監査記録（<a href="../ER図.md">ER図</a> の <code>inventory_logs.status</code> / <code>operation_audits</code>）。</div>
   <div class="flow-row">
 
     <!-- 登録・使用 -->
@@ -246,10 +246,7 @@
             <span class="ttl">残量調整</span>
             <span class="icons"><span class="txtlink">🕘 履歴</span> 🏠</span>
           </div>
-          <span class="label">○部屋選択</span>
-          <div class="card radio-list">
-            <span class="sel">溶媒庫</span><span>学生実験室</span><span>A部屋</span>
-          </div>
+          <div class="card">研究室：<b>山田研</b><br><small>ログインアカウントの所属から自動表示</small></div>
           <span class="label">○溶媒選択</span>
           <div class="card radio-list">
             <span class="sel">メタノール</span><span>エタノール</span><span>アセトン</span>
@@ -260,7 +257,7 @@
             <div style="margin-top:6px;font-size:12px;">☑ 追加する　☐ 使用する</div>
           </div>
           <div class="center"><span class="btn">確認画面</span></div>
-          <p class="note">※画面は既存のまま。右上の「🕘 履歴」から入出庫履歴一覧へ（★新規）。</p>
+          <p class="note">※全体管理者のみ研究室を選択。右上の「🕘 履歴」から入出庫履歴一覧へ。</p>
           <div class="spacer"></div>
         </div>
         <div class="tabbar">
@@ -283,7 +280,7 @@
           <div class="hdr"><span class="ttl">入出庫履歴</span><span class="icons">🏠</span></div>
           <a class="back">← 残量調整に戻る</a>
           <div>
-            <span class="select">部屋：すべて</span>
+            <span class="label">研究室：山田研</span>
             <span class="select">溶媒：すべて</span>
           </div>
           <table>
@@ -316,7 +313,7 @@
           <div class="hdr"><span class="ttl">入出庫履歴</span><span class="icons">🏠</span></div>
           <a class="back">← 残量調整に戻る</a>
           <div>
-            <span class="select">部屋：すべて</span>
+            <span class="label">研究室：山田研</span>
             <span class="select">溶媒：すべて</span>
           </div>
           <table>
@@ -339,7 +336,7 @@
             <div class="m-ttl">この記録を取り消しますか？</div>
             <div class="target">
               <b>10/7　アセトン　−1.0 L</b><br>
-              使用者：学生B ／ 溶媒庫
+              使用者：学生B ／ 山田研
             </div>
             <div>
               <span class="label">実操作者名<span class="req">必須</span></span>
@@ -423,11 +420,11 @@
 <!-- ========================================================= -->
 <div class="flow">
   <div class="flow-title">🔍 在庫フロー（在庫一覧 → 詳細情報＋在庫下限設定）</div>
-  <div class="flow-desc">在庫検索→一覧→詳細は既存のまま。詳細に「下限値」行を1行追加<span class="badge-new">★新規</span>。変更はダイアログ（画面遷移なし）。</div>
+  <div class="flow-desc">在庫検索→一覧→詳細の遷移を維持する。研究室・溶媒庫管理アカウントは所属研究室の在庫だけを表示し、全体管理者は研究室を選択する。詳細に「下限値」行を1行追加<span class="badge-new">★新規</span>。変更はダイアログ（画面遷移なし）。</div>
   <div class="flow-row">
 
     <div class="origin">
-      <b>在庫一覧</b><br>（既存 /inventory/list）<br>部屋別・溶媒別
+      <b>在庫一覧</b><br>（既存 /inventory/list）<br>所属研究室・溶媒別
     </div>
 
     <div class="arrow"><span class="lbl">行タップ</span><span class="ln">▶</span></div>
@@ -439,7 +436,7 @@
         <div class="screen">
           <div class="hdr"><span class="ttl">詳細情報</span><span class="icons">🏠</span></div>
           <a class="back">← 在庫一覧に戻る</a>
-          <div class="center" style="font-weight:700;font-size:14px;">溶媒庫<br>メタノール</div>
+          <div class="center" style="font-weight:700;font-size:14px;">山田研<br>メタノール</div>
           <table>
             <tr><td>CAS番号</td><td>67-56-1</td></tr>
             <tr><td>分子式</td><td>CH₃OH</td></tr>

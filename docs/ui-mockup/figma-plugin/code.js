@@ -373,8 +373,8 @@ function buildScreens() {
     const b = screen("01", "login", null, { label: "ログイン", homeIcon: false });
     center(b, txt("ChemStock", { size: 26, bold: true, color: TEAL_D }));
     center(b, txt("研究室単位の共有アカウントでログイン", { size: 11, color: MUTED }));
-    labeled(b, "研究室 / 管理者");
-    const s = selectBox(b, "溶媒庫管理者"); try { s.layoutSizingHorizontal = "FILL"; } catch (e) {}
+    labeled(b, "共有アカウント");
+    const s = selectBox(b, "山田研（溶媒庫管理）"); try { s.layoutSizingHorizontal = "FILL"; } catch (e) {}
     labeled(b, "パスワード");
     field(b, "••••••••", true);
     spacer(b);
@@ -485,7 +485,7 @@ function buildScreens() {
     logCard(b, "10/9　メタノール　＋3.0 L", "使用者：学生A");
     logCard(b, "10/7　アセトン　−1.0 L", "使用者：学生B");
     logCard(b, "10/5　エタノール　−2.0 L", "使用者：学生A");
-    note(b, "※自研究室の履歴のみ表示（管理者は全研究室）。各行の「編集／取消」から実操作者名・理由を入力。");
+    note(b, "※研究室・溶媒庫管理は所属研究室のみ。全体管理者は選択した研究室の履歴を表示。各行の「編集／取消」から実操作者名・理由を入力。");
   }
 
   // 08 edit (new)
@@ -522,12 +522,9 @@ function buildScreens() {
     const b = screen("10", "search", "在庫検索", { tab: "search" });
     const c0 = card(b);
     c0.appendChild(txt("研究室：山田研", { size: 14, bold: true }));
-    c0.appendChild(txt("ログインアカウントから自動。管理者は全研究室を選択可", { size: 12, color: MUTED }));
+    c0.appendChild(txt("所属アカウントから自動。全体管理者のみ研究室を選択", { size: 12, color: MUTED }));
     labeled(b, "溶媒で絞り込み");
     const s2 = selectBox(b, "すべての溶媒"); try { s2.layoutSizingHorizontal = "FILL"; } catch (e) {}
-    const leg = txt("（レガシー）部屋別在庫を開く", { size: 10, color: MUTED, underline: true });
-    add(b, leg);
-    wires.push({ n: leg, k: "nav", d: "roomid" });
     spacer(b);
     const go = add(b, btn(BtnPrimary, "在庫状況を表示"), true);
     wires.push({ n: go, k: "nav", d: "list" });
@@ -558,7 +555,7 @@ function buildScreens() {
     mkRow("アセトン", "2.0 L", true);
     mkRow("エタノール", "18.5 L", false);
     mkRow("トルエン", "1.5 L", true);
-    note(b, "※自研究室の在庫のみ表示（管理者は全研究室）。行タップで詳細情報へ。⚠ は下限割れ。");
+    note(b, "※研究室・溶媒庫管理は所属研究室のみ。全体管理者は選択した研究室の在庫を表示。行タップで詳細へ。");
   }
 
   // 12 detail
@@ -589,7 +586,7 @@ function buildScreens() {
     const b = screen("13", "roomid", "部屋別在庫", { tab: "search", cat: "legacy" });
     backLink(b, "在庫検索に戻る", "search");
     const c0 = card(b);
-    c0.appendChild(txt("※本線からのリンクなし。直接URL用の旧画面（レガシー）。", { size: 10, color: MUTED }));
+    c0.appendChild(txt("※本線からのリンクなし。所属研究室以外の参照は不可。", { size: 10, color: MUTED }));
     const c = card(b, 6);
     c.appendChild(txt("メタノール　36.0 L", { size: 12 }));
     c.appendChild(txt("アセトン　　2.0 L", { size: 12 }));
@@ -693,7 +690,7 @@ function buildScreens() {
     listItem(c, "🧪 溶媒マスタ管理", "master");
     divider(c);
     listItem(c, "⚙️ 各種設定", "settings");
-    note(b, "※表示スコープ＝溶媒庫管理は自分の溶媒庫のみ／全体管理者は全溶媒庫（F1-8）。");
+    note(b, "※指定数量の表示スコープ＝単一の溶媒庫内にある全研究室の合算。溶媒庫管理・全体管理者が全件を閲覧（F1-8）。");
   }
 
   // 20 notif (new)

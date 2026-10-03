@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChemStock｜追加機能の操作フロー・チーム共有</title>
+<style>
+  :root{--bg:#d5ebe1;--green:#2e6b58;--deep:#213e33;--line:#c7d9cf;--ink:#26392e;--muted:#52695d;--white:#fff;--amber:#8d5a12;--amber-bg:#fff3d9;--purple:#6548a3;--purple-bg:#f0ebfc}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:#eef4f0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;line-height:1.65}
+  a{color:#205f4b}
+  a:focus-visible{outline:3px solid #b76e23;outline-offset:3px;border-radius:4px}
+  .wrap{width:min(1080px,calc(100% - 32px));margin:auto}
+  header{background:var(--bg);border-bottom:1px solid #bad5c7;padding:36px 0 28px}
+  .eyebrow{font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--green)}
+  h1{font-size:clamp(28px,4vw,42px);line-height:1.3;margin:8px 0}
+  h2{font-size:24px;line-height:1.4;margin:0 0 10px;color:var(--deep)}
+  h3{font-size:18px;margin:0 0 8px;color:var(--deep)}
+  p{margin:0 0 12px}
+  .lede{max-width:760px;font-size:17px}
+  .status{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .pill{display:inline-flex;align-items:center;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;background:#e2f4e9;color:#1c5b42}
+  .pill.pending{background:var(--amber-bg);color:var(--amber)}
+  .toolbar{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}
+  .button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border-radius:7px;padding:9px 16px;background:var(--green);color:#fff;text-decoration:none;font-weight:750}
+  .button.secondary{background:#fff;color:var(--green);border:1px solid #83ab98}
+  main{padding:30px 0 55px}
+  section{scroll-margin-top:22px;margin:0 0 34px}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 10px #163f2910;padding:22px}
+  .card + .card{margin-top:14px}
+  .muted{color:var(--muted)}
+  .quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .quick a{display:block;min-height:56px;border:1px solid var(--line);border-radius:9px;background:white;padding:14px;text-decoration:none;font-weight:800}
+  .quick span{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+  .flow{border-top:1px solid var(--line);padding-top:24px;margin-top:24px}
+  .flow:first-of-type{border-top:0;padding-top:0;margin-top:0}
+  .tag{display:inline-block;background:var(--purple-bg);color:var(--purple);font-size:12px;font-weight:800;padding:3px 8px;border-radius:5px;margin-bottom:9px}
+  .tag.daily{background:#e8f4ee;color:var(--green)}
+  .tag.admin{background:var(--amber-bg);color:var(--amber)}
+  .steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;list-style:none;counter-reset:step;margin:18px 0;padding:0}
+  .steps li{position:relative;background:#f4f8f5;border:1px solid var(--line);border-radius:9px;padding:15px 12px 13px;min-height:104px;font-size:14px}
+  .steps li::before{counter-increment:step;content:counter(step);display:block;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:800;text-align:center;line-height:24px;margin-bottom:8px}
+  .steps li:not(:last-child)::after{content:"→";position:absolute;right:-12px;top:40px;z-index:2;color:var(--green);font-weight:900;background:#fff;border-radius:50%;width:18px;text-align:center}
+  .path{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;color:#596d62;overflow-wrap:anywhere}
+  .callout{border-left:4px solid var(--green);background:#f0f7f2;padding:12px 16px;border-radius:0 7px 7px 0;margin:16px 0}
+  .callout.caution{border-color:#c4892e;background:#fff7e9}
+  .links{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .links a{min-height:40px;display:inline-flex;align-items:center}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;border-bottom:1px solid var(--line);padding:11px 10px;vertical-align:top}
+  th{background:#e9f3ed;color:var(--deep)}
+  .table-scroll{overflow-x:auto}
+  .scroll-hint{display:none}
+  .columns{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  ul{padding-left:1.4em;margin:8px 0}
+  li{margin:5px 0}
+  code{background:#eaf1ec;padding:2px 5px;border-radius:4px}
+  footer{border-top:1px solid var(--line);padding:22px 0 35px;font-size:13px;color:var(--muted)}
+  @media(max-width:850px){.quick{grid-template-columns:repeat(2,minmax(0,1fr))}.steps{grid-template-columns:1fr}.steps li{min-height:0}.steps li:not(:last-child)::after{content:"↓";right:50%;top:auto;bottom:-16px}.columns{grid-template-columns:1fr}}
+  @media(max-width:520px){.wrap{width:min(100% - 24px,1080px)}.card{padding:17px}.quick{grid-template-columns:1fr 1fr}.quick a{padding:10px;font-size:14px}th,td{font-size:12px;min-width:110px}.scroll-hint{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}}
+  @media print{body{background:#fff}header{padding:14px 0}.button{display:none}.card{box-shadow:none;break-inside:avoid}.steps li{break-inside:avoid}section{margin-bottom:20px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="eyebrow">CHEMSTOCK · チーム共有資料 · 2026-10-03</div>
+    <h1>追加機能の操作フロー</h1>
+    <p class="lede">実装した画面を、日々の入出庫から欠品予測・指定数量の確認まで、操作する順番で説明するための資料です。</p>
+    <div class="status"><span class="pill">コード実装・ローカル検証済み</span><span class="pill pending">予測方式は再検討中</span><span class="pill pending">実Supabaseの通し確認前</span><span class="pill pending">リリース判定前</span></div>
+    <div class="toolbar"><a class="button" href="http://localhost:3000/preview" target="_blank" rel="noopener noreferrer">操作できるプレビューを開く</a><a class="button secondary" href="ui-mockup/画面遷移マップ.html">全画面の遷移マップを見る</a><a class="button secondary" href="#dx-meaning">DXとの関係を読む</a></div>
+  </div>
+</header>
+<main class="wrap">
+  <section aria-labelledby="how-to-title">
+    <div class="card">
+      <h2 id="how-to-title">見る前に</h2>
+      <p>このHTMLは単体で閲覧できます。操作を試す場合はリポジトリで <code>npm ci</code> → <code>npm run dev</code> を実行し、上のボタンから <code>http://localhost:3000/preview</code> を開いてください。プレビュー画面上部で「研究室」「溶媒庫管理」「全体管理者」を切り替えられます。</p>
+      <p class="muted">プレビューはサンプルデータで、操作内容はそのブラウザー内に保存されます。実在庫やSupabaseへは書き込みません。日付・数量はサンプルと操作結果によって変わります。</p>
+    </div>
+  </section>
+  <nav class="quick" aria-label="操作フローの目次">
+    <a href="#movement">1. 入出庫と履歴<span>全ロール・権限内の研究室</span></a>
+    <a href="#forecast">2. 欠品予測<span>所属・選択研究室の在庫</span></a>
+    <a href="#notification">3. 指定数量通知<span>管理者のみ・全研究室合算</span></a>
+    <a href="#management">4. 管理対象と設定<span>操作ごとに権限を確認</span></a>
+  </nav>
+  <section class="card" aria-labelledby="flows-title" style="margin-top:22px">
+    <h2 id="flows-title">主要な操作手順</h2>
+    <div class="flow" id="movement">
+      <span class="tag daily">日常操作</span>
+      <h3>1. 入出庫を記録し、履歴で確認する</h3>
+      <p>共有アカウントなので、保存のたびに<strong>実際に操作した人の名前</strong>を入力します。研究室・溶媒庫管理のアカウントでは対象研究室を所属から決め、全体管理者だけが研究室を選択します。</p>
+      <ol class="steps"><li>ホームから「入庫・使用を記録」<div class="path">/preview</div></li><li>「残量調整」で溶媒を選択<div class="path">/inventory/adjust</div></li><li>追加／使用、正の数量、単位、実操作者を入力<div class="path">/inventory/action/add</div></li><li>現在量・変量・更新後残量を確認して実行<div class="path">…/confirm</div></li><li>完了後、履歴で記録を確認。誤りは理由を添えて訂正・取消<div class="path">/inventory/history</div></li></ol>
+      <div class="callout">数量の符号は「追加／使用」から決まり、負数の入力は保存前に止めます。後日登録には実際の入出庫日時を指定できます。訂正・取消は元の履歴を消さず、監査記録を残します。</div>
+      <div class="links"><a href="http://localhost:3000/preview/inventory/adjust" target="_blank" rel="noopener noreferrer">この操作から試す →</a></div>
+    </div>
+    <div class="flow" id="forecast">
+      <span class="tag">DXコア F2</span>
+      <h3>2. 下限到達の見込みを確認する</h3>
+      <p>所属研究室（全体管理者は選択した研究室）の有効な出庫履歴から直近N日間の平均使用量を計算し、在庫下限に達する時期を見積もります。これは見通しの表示であり、発注を自動で決める機能ではありません。</p>
+      <ol class="steps"><li>ホームの「在庫のお知らせ」を見る<div class="path">/preview</div></li><li>気になる溶媒の行を開く<div class="path">/inventory/detail/…</div></li><li>下限値と現在量を確認<div class="path">在庫詳細</div></li><li>「グラフ」タブで溶媒・期間を選ぶ<div class="path">/graph</div></li><li>実績線、下限線、予測線・予測日を読む<div class="path">同じグラフ画面</div></li></ol>
+      <div class="callout">出庫実績がない、下限未設定、すでに下限以下、または到達が365日超の場合は予測日を出しません。下限以下はホーム・在庫一覧に状態として表示し、管理者向け通知は作りません。</div>
+      <p class="muted">現行の予測日は「設定した期間の平均使用ペースが続く場合」の計算結果です。記録開始直後やまとめ出庫では日付が実際の使用予定を表さないため、<a href="欠品予測_計算方式レビュー.md">計算と表示の方法を再検討中</a>です。</p>
+      <div class="links"><a href="http://localhost:3000/preview/graph" target="_blank" rel="noopener noreferrer">グラフを開く →</a></div>
+    </div>
+    <div class="flow" id="notification">
+      <span class="tag admin">DXコア F1・管理者のみ</span>
+      <h3>3. 指定数量の超過を確認・対応する</h3>
+      <p>溶媒庫にある全研究室の利用中在庫を合算して倍率を表示します。既定の0.8倍はChemStock独自の<strong>接近表示</strong>で、1.0倍以上になると管理者向けアプリ内通知を記録します。</p>
+      <ol class="steps"><li>管理タブの未確認件数を見る<div class="path">/manage</div></li><li>「管理者画面」を開く<div class="path">/manage/admin</div></li><li>「通知一覧」で未確認通知を読む<div class="path">…/notifications</div></li><li>「現在の倍率を見る」でモニターへ<div class="path">…/designated-quantity</div></li><li>確認済み・対応済みへ変更し、件数の更新を確認<div class="path">通知一覧</div></li></ol>
+      <div class="callout caution">通知の倍率は発生時点の値、モニターの倍率は現在値です。研究室ユーザーには倍率・通知を表示しません。メール・SMS・プッシュ通知は初回リリースの確認対象ではありません。</div>
+      <div class="links"><a href="http://localhost:3000/preview/manage/admin/notifications" target="_blank" rel="noopener noreferrer">管理者の通知画面を開く →</a></div>
+    </div>
+    <div class="flow" id="management">
+      <span class="tag daily">管理操作</span>
+      <h3>4. 管理する溶媒を追加・再開し、設定を確認する</h3>
+      <p>管理対象の追加・再開は所属研究室の範囲で行います。全体管理者は溶媒マスタの登録・指定数量の変更と、警告倍率・予測期間の変更もできます。</p>
+      <ol class="steps"><li>管理タブから「溶媒種類管理」<div class="path">/manage/types</div></li><li>「溶媒を追加」で既存マスタを選ぶ<div class="path">…/types/new</div></li><li>実操作者名と理由を入力し、追加・再開<div class="path">管理対象</div></li><li>全体管理者はマスタ・設定を開く<div class="path">…/admin/master・settings</div></li><li>保存後、対象研究室の在庫と現在の倍率を確認<div class="path">在庫・モニター</div></li></ol>
+      <div class="callout">利用停止は残量0 Lの在庫に限ります。停止・再開しても履歴を物理削除しません。指定数量は溶媒マスタの値を使い、早期警告倍率とは別に扱います。</div>
+      <div class="links"><a href="http://localhost:3000/preview/manage/types" target="_blank" rel="noopener noreferrer">管理対象画面を開く →</a></div>
+    </div>
+  </section>
+  <section aria-labelledby="before-after-title">
+    <div class="card">
+      <h2 id="before-after-title">以前の画面・実装から変わったこと</h2>
+      <p class="scroll-hint">表は左右にスクロールできます →</p>
+      <div class="table-scroll"><table><thead><tr><th>場面</th><th>以前</th><th>今回</th><th>操作上の意味</th></tr></thead><tbody>
+        <tr><th>入出庫</th><td>更新前後の量と実操作者を確認しづらかった</td><td>保存前に対象研究室・変量・更新後残量を表示</td><td>共有アカウントでも、誰が何を記録するか確かめやすい</td></tr>
+        <tr><th>欠品の見通し</th><td>実データの予測が画面につながっていなかった</td><td>ホームとグラフに下限・現行式による予測日を表示</td><td>在庫を見た流れで不足の目安を確認できる。予測方式は再検討中</td></tr>
+        <tr><th>指定数量</th><td>超過通知の入口と未確認件数が追いづらかった</td><td>管理タブから通知一覧と現在倍率へ移動</td><td>管理者が確認待ちを見つけ、発生時と現在を見比べられる</td></tr>
+        <tr><th>溶媒・設定管理</th><td>管理対象追加や設定変更を画面から実行できなかった</td><td>権限内で追加・再開・設定変更を保存</td><td>管理作業を画面で完結し、変更理由を記録できる</td></tr>
+      </tbody></table></div>
+      <p class="muted" style="margin-top:12px">「確かめやすい」などは画面設計上の狙いです。所要時間・誤操作率の改善はまだ測定していません。</p>
+    </div>
+  </section>
+  <section class="card" id="dx-meaning" aria-labelledby="dx-title">
+    <h2 id="dx-title">追加機能はどのようにDXにつながるか</h2>
+    <p>まず入出庫を正確に記録し、実操作者と変更理由を残すことで、在庫と履歴を判断に使えるデータにします。そのデータから、次の2つの判断を支援します。</p>
+    <ol>
+      <li><strong>指定数量監視 F1：</strong>溶媒庫全体の倍率を入出庫のたびに再判定し、超過時は管理者が通知を確認・対応します。人が定期的に計算して異常を探す仕事から、システムの判定を受けて対応する仕事へ移る入口です。</li>
+      <li><strong>下限到達の目安 F2：</strong>研究室の過去の出庫を使い、「このペースが続けばいつ下限に近づくか」を示す現行実装です。実験予定は入力していないため、次のまとめ出庫日は予測できません。早めの確認に役立つ表示へ再設計中です。</li>
+    </ol>
+    <div class="callout"><strong>共有会での説明例：</strong>「今回は、紙の記録を画面に置き換えるだけでなく、蓄積した入出庫から指定数量の超過を管理者へ示し、研究室には下限到達の目安を示します。記録を見て人が気づく業務から、システムの提示を受けて人が判断・対応する業務への一歩です。ただし、機能を作っただけでDXが完成したわけではありません。現場で記録と確認が定着し、見逃しや対応の遅れが減ったかを検証します。」</div>
+    <p class="muted">現在確認できたのは画面・DB処理のローカル実装です。対応時間、見逃し、記録の定着率、予測の有用性などの運用効果は未測定です。大学全体の運用変革には複数研究室の定着と管理主体の合意が必要です。</p>
+    <div class="links"><a href="DX構想.md">DX構想の位置づけを見る →</a></div>
+  </section>
+  <section aria-labelledby="forecast-review-title">
+    <div class="card">
+      <h2 id="forecast-review-title">下限予測の表示方法を再検討中</h2>
+      <p>現行式は「直近N日の出庫量 ÷ N」を1日あたりの使用量とし、現在量から下限までの差をその値で割ります。分かりやすい反面、開始3日で3 L使った場合もN=30日で割るため、少ない履歴で下限到達を遅く見積もることがあります。</p>
+      <p>分母を観測日数に変えるだけでは、実験日にまとめて使う在庫の次回出庫時期は分かりません。初回リリースの提案は、下限までの余裕量と「直近の最大出庫と同量なら何回で下限に届くか」を示し、到達日はいったん表示しない方式です。日付は実績で有用性を確かめてから条件付きの試算として追加します。現行コードと要件定義はまだ変更していません。</p>
+      <div class="links"><a href="欠品予測_計算方式レビュー.md">計算方式の再検討を見る →</a></div>
+    </div>
+  </section>
+  <section aria-labelledby="roles-title">
+    <div class="card">
+      <h2 id="roles-title">権限ごとの見え方</h2>
+      <p class="scroll-hint">表は左右にスクロールできます →</p>
+      <div class="table-scroll"><table><thead><tr><th>権限</th><th>入出庫・欠品予測</th><th>通知・合算倍率</th><th>マスタ・設定変更</th></tr></thead><tbody>
+        <tr><th>研究室</th><td>所属研究室のみ</td><td>表示しない</td><td>所属研究室の管理対象追加・再開</td></tr>
+        <tr><th>溶媒庫管理</th><td>所属研究室のみ</td><td>全研究室分を確認・対応</td><td>所属研究室の管理対象追加・再開</td></tr>
+        <tr><th>全体管理者</th><td>対象研究室を選択</td><td>全研究室分を確認・対応</td><td>溶媒マスタ・指定数量・限定設定も変更</td></tr>
+      </tbody></table></div>
+    </div>
+  </section>
+  <section class="columns" aria-label="実装と確認事項">
+    <div class="card"><h2>実装したこと</h2><ul><li>画面、設定・予測の読取Query RPC、入出庫・通知・管理操作のCommand RPC</li><li>在庫・履歴・監査・通知のDB処理、権限確認、重複再送の抑制</li><li>未確認件数、画面復帰時の再取得、下限・倍率の状態表示</li></ul><p class="muted">ローカルプレビュー、一時PostgreSQL、型チェック、Lint、製品ビルドで確認済みです。</p></div>
+    <div class="card"><h2>リリース前の残件</h2><ul><li>予測の表示目的・計算方法を決め、要件定義と実装に反映する</li><li>実Supabase開発環境で、追加→初回入庫→履歴→倍率・予測まで通しで確認する</li><li>別端末への更新反映、通信結果不明時の再試行、実スマートフォンでの表示を確認する</li></ul><p class="muted">予測方式の運用上の妥当性評価、実Supabaseへのマイグレーション適用と実機の通し試験は未実施です。これらが終わるまでリリース完了とは扱いません。</p></div>
+  </section>
+</main>
+<footer><div class="wrap">根拠資料：<a href="DX構想.md">DX構想</a> · <a href="DXコア機能_要件定義.md">DXコア機能 要件定義</a> · <a href="欠品予測_計算方式レビュー.md">予測方式の検討</a> · <a href="worklogs/2026-10-03-リリース前修正.md">リリース前修正の作業記録</a> · <a href="ui-mockup/画面遷移マップ.html">画面遷移マップ</a></div></footer>
+</body>
+</html>

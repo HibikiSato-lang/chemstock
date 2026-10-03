@@ -201,7 +201,7 @@
       <div class="center" style="font-size:24px;font-weight:800;color:var(--teal-dark);">ChemStock</div>
       <div class="center note">研究室単位の共有アカウントでログイン</div>
       <div style="height:8px"></div>
-      <div><span class="label">研究室 / 管理者</span><div class="select" style="width:100%;margin-top:4px;">溶媒庫管理者</div></div>
+      <div><span class="label">共有アカウント</span><div class="select" style="width:100%;margin-top:4px;">山田研（溶媒庫管理）</div></div>
       <div><span class="label">パスワード</span><div class="field" style="margin-top:4px;">••••••••</div></div>
       <p class="note center">※個人ログインではない。操作者名は各操作時に手入力。</p>
       <div class="cta-bar"><button class="btn block" data-goto="home">ログイン</button></div>
@@ -290,7 +290,7 @@
         <div class="info"><span><b>10/5</b>　エタノール　<span class="amt">−2.0 L</span></span><span class="sub">使用者：学生A</span></div>
         <div class="acts"><button class="btn ghost" data-goto="edit">編集</button><button class="btn danger" data-open="ov-cancel">取消</button></div>
       </div>
-      <p class="note">※自研究室の履歴のみ表示（管理者は全研究室）。各行の「編集／取消」から実操作者名・理由を入力。</p>
+      <p class="note">※研究室・溶媒庫管理は所属研究室の履歴のみ。全体管理者は選択した研究室の履歴を表示。各行の「編集／取消」から実操作者名・理由を入力。</p>
       <div class="spacer"></div>
       <div class="overlay" id="ov-cancel">
         <div class="modal">
@@ -331,9 +331,9 @@
     <!-- ===== 在庫検索 ===== -->
     <section class="screen-page" id="search">
       <div class="hdr"><span class="ttl">在庫検索</span></div>
-      <div class="card" style="font-size:14px;">研究室：<b>山田研</b>　<small style="color:var(--muted);">ログインアカウントから自動。管理者は全研究室を選択可</small></div>
+      <div class="card" style="font-size:14px;">研究室：<b>山田研</b>　<small style="color:var(--muted);">所属アカウントから自動。全体管理者のみ研究室を選択</small></div>
       <span class="label">溶媒で絞り込み</span><div class="select" style="width:100%;">すべての溶媒</div>
-      <p class="note">※プルダウンで絞り込んで一覧へ。<button class="back" data-goto="roomid">（レガシー: 部屋別在庫を開く）</button></p>
+      <p class="note">※所属研究室の在庫を溶媒で絞り込んで一覧へ。</p>
       <div class="cta-bar"><button class="btn block" data-goto="list">在庫状況を表示</button></div>
     </section>
 
@@ -347,7 +347,7 @@
         <div class="nav-row" data-goto="detail"><span>エタノール</span><span class="val">18.5 L <span class="chev">＞</span></span></div>
         <div class="nav-row warn" data-goto="detail"><span>トルエン</span><span class="val"><span class="pill warn">下限割れ</span>1.5 L <span class="chev">＞</span></span></div>
       </div>
-      <p class="note">※自研究室の在庫のみ表示（管理者は全研究室）。行タップで詳細へ。</p>
+      <p class="note">※研究室・溶媒庫管理は所属研究室の在庫のみ。全体管理者は選択した研究室の在庫を表示。行タップで詳細へ。</p>
       <div class="spacer"></div>
     </section>
 
@@ -376,7 +376,7 @@
           <div class="m-ttl neutral">在庫下限値を変更</div>
           <div class="target">メタノール（山田研）<br>現在の下限：<b>5.0 L</b></div>
           <div><span class="label">新しい下限値<span class="req">必須</span></span><div class="field filled" style="margin-top:3px;">8.0 L</div></div>
-          <p class="note">※low_stock_threshold を更新し監査記録。下回ると通知対象。</p>
+          <p class="note">※low_stock_threshold を更新し監査記録。下限割れは画面の状態表示のみ。</p>
           <div class="m-actions"><button class="btn ghost" data-close>キャンセル</button><button class="btn" data-close data-toast="下限値を 8.0 L に更新しました">保存</button></div>
         </div>
       </div>
@@ -386,7 +386,7 @@
     <section class="screen-page" id="roomid" data-cat="legacy">
       <div class="hdr"><span class="ttl">部屋別在庫</span></div>
       <button class="back" data-goto="search">← 在庫検索に戻る</button>
-      <div class="card" style="font-size:11px;color:var(--muted);">※本線からのリンクなし。直接URL用の旧画面（レガシー）。</div>
+      <div class="card" style="font-size:11px;color:var(--muted);">※本線からのリンクなし。直接URL用の旧画面（レガシー）。所属研究室以外の参照は不可。</div>
       <table><tr><th>溶媒</th><th>残量</th></tr><tr><td>メタノール</td><td>36.0 L</td></tr><tr><td>アセトン</td><td>2.0 L</td></tr></table>
       <div class="spacer"></div>
     </section>

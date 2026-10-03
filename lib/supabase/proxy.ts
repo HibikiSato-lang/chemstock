@@ -7,6 +7,12 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  // Preview routes use local sample data and do not require a Supabase session.
+  const pathname = request.nextUrl.pathname;
+  if (pathname === "/preview" || pathname.startsWith("/preview/")) {
+    return supabaseResponse;
+  }
+
   // If the env vars are not set, skip proxy check. You can remove this
   // once you setup the project.
   if (!hasEnvVars) {
