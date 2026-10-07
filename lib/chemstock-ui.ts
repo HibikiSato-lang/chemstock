@@ -1,17 +1,19 @@
+import type { StockRisk } from "./stock-risk";
+
 export type Role = "lab" | "solvent_room_admin" | "global_admin";
 export type Room = { id: string; name: string };
 export type Solvent = { id: string; name: string; cas_number: string | null; formula: string | null; molecular_weight: string | null; designated_quantity?: number | null };
 export type Stock = { id: string; room_id: string; solvent_id: string; amount: number; opening_amount: number; opened_at: string; low_stock_threshold: number | null; is_active: boolean; last_updated?: string };
-export type StockLog = { id: string; inventory_id: string; change_amount: number; operator_name: string; purpose: string | null; status: "active" | "cancelled"; occurred_at: string };
-export type DemoAudit = { id: string; account_id: string; target_type: "log" | "inventory" | "notification"; target_id: string; action: "cancel" | "correct" | "threshold" | "deactivate" | "status_change"; operator_name: string; reason: string; before_value: Record<string, unknown>; after_value: Record<string, unknown>; created_at: string };
+export type StockLog = { id: string; inventory_id: string; change_amount: number; operator_name: string; purpose: string | null; status: "active" | "cancelled"; occurred_at: string; created_at?: string; updated_at?: string };
+export type DemoAudit = { id: string; account_id: string; target_type: "log" | "inventory" | "notification" | "setting"; target_id: string; action: "cancel" | "correct" | "threshold" | "deactivate" | "reactivate" | "status_change" | "stock_risk_quality" | "stock_risk_enable"; operator_name: string; reason: string; before_value: Record<string, unknown>; after_value: Record<string, unknown>; created_at: string };
 export type Notice = { id: string; message: string; ratio: number; status: "unread" | "acknowledged" | "resolved"; notified_at: string };
 export type AdminOverview = { totalRatio: number; warningRatio: number; state: "normal" | "warning" | "exceeded"; breakdown: { solventId: string; solventName: string; amount: number; baseUnit: "L"; designatedQuantity: number; ratio: number }[]; unconfiguredSolvents: { solventId: string; solventName: string; amount: number }[]; unreadNotificationCount: number; notifications: Notice[] };
 export type AdminEmailStatus = { enabled: boolean; recipientEmail: string | null; senderEmail: string | null; pendingCount: number; acceptedCount: number; failedCount: number; recentFailures: { notificationId: string; errorCode: string; updatedAt: string }[] };
 export type AdminManagement = { solvents: { id: string; designatedQuantity: number | null }[]; warningRatio: number; forecastWindowDays: number };
 export type Account = { id: string; room_id: string | null; role: Role; login_id: string };
-export type AppSettings = { unitGalToL: number; unitTokanToL: number; forecastWindowDays: number };
+export type AppSettings = { unitGalToL: number; unitTokanToL: number; forecastWindowDays: number; stockRiskAvailable?: boolean; stockRiskEnabled?: boolean };
 export type Forecast = { inventoryId: string; status: "forecast" | "no_outbound_history" | "threshold_not_set" | "already_below_threshold" | "inactive" | "beyond_horizon"; dailyUse: number; daysUntilLow: number | null; forecastAt: string | null };
-export type DataSet = { account: Account; rooms: Room[]; solvents: Solvent[]; stocks: Stock[]; logs: StockLog[]; audits: DemoAudit[]; notices: Notice[]; settings: AppSettings; forecasts: Forecast[]; adminOverview?: AdminOverview | null; adminEmailStatus?: AdminEmailStatus | null; adminManagement?: AdminManagement | null };
+export type DataSet = { account: Account; rooms: Room[]; solvents: Solvent[]; stocks: Stock[]; logs: StockLog[]; audits: DemoAudit[]; notices: Notice[]; settings: AppSettings; forecasts: Forecast[]; stockRisks?: StockRisk[]; adminOverview?: AdminOverview | null; adminEmailStatus?: AdminEmailStatus | null; adminManagement?: AdminManagement | null };
 
 const now = new Date();
 const ago = (days: number) => new Date(now.getTime() - days * 86400000).toISOString();

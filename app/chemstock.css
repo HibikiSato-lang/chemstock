@@ -25,5 +25,10 @@
 .cs-dq-warning strong,.cs-dq-warning span{color:#a06116}
 .cs-dq-exceeded strong,.cs-dq-exceeded span{color:#b24032}
 .cs-chart-legend{font-size:11px;color:#566c5f;margin:4px 0 0}
-.cs-forecast-status{font-size:14px;font-weight:700;margin:14px 0 0;color:#2e6b58}
+.cs-threshold-status{font-size:14px;font-weight:700;margin:14px 0 0;color:#2e6b58}
 .cs-modal{max-height:calc(100dvh - 40px);overflow-y:auto}
+.cs-risk h3{font-size:15px;font-weight:700;margin:0 0 10px}.cs-risk p{font-size:13px;line-height:1.7;margin:8px 0}
+.cs-risk-evidence summary,.cs-risk-quality summary{cursor:pointer;font-size:13px;font-weight:700;min-height:36px;display:list-item;padding-top:8px}
+.cs-risk-evidence dl{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,1.5fr);gap:8px;font-size:12px;margin:12px 0}.cs-risk-evidence dt{color:#52675a}.cs-risk-evidence dd{margin:0;overflow-wrap:anywhere}
+.cs-risk-row span:first-child{min-width:0}.cs-risk-row small{display:block;font-size:11px;line-height:1.6;font-weight:400;margin-top:4px}.cs-risk-home summary{font-size:13px;cursor:pointer;min-height:36px;padding-top:8px}
+.cs-demo-bar{flex-wrap:wrap;gap:8px}.cs-risk-quality .cs-muted{font-size:12px;line-height:1.7}

@@ -210,18 +210,18 @@
 </div>
 
 <section class="current-panel" id="current-implementation" aria-labelledby="current-title">
-  <h2 id="current-title">現在の実装済み操作フロー（2026-10-03）</h2>
-  <div class="current-status"><span>コード実装・ローカル検証済み</span><span class="pending">予測方式は再検討中</span><span class="pending">実Supabaseの通し確認前</span><span class="pending">リリース判定前</span></div>
+  <h2 id="current-title">現在の実装済み操作フロー（2026-10-05）</h2>
+  <div class="current-status"><span>コード実装・ローカル検証済み</span><span class="pending">予測方式とメール導入は今後検討</span><span class="pending">実Supabaseの通し確認前</span><span class="pending">リリース判定前</span></div>
   <p>今回追加した画面と処理を、実際の操作順にまとめました。下のスマホ図は設計時の画面案で、現在の文言や遷移と差があります。チームへの説明には、詳細ガイドと操作できるプレビューを使ってください。</p>
   <div class="current-flows">
     <div><strong>① 入出庫・履歴</strong>ホーム → 溶媒選択 → 数量・実操作者 → 更新後残量の確認 → 保存 → 履歴／訂正・取消</div>
-    <div><strong>② 欠品予測 F2</strong>ホームの在庫お知らせ → 詳細 → グラフの下限線・予測日。研究室の在庫に限定</div>
+    <div><strong>② 残量と下限 F2</strong>ホームの下限以下のお知らせ → 詳細 → グラフの実績線・下限線。予測日は初回表示しない</div>
     <div><strong>③ 指定数量 F1</strong>管理タブの未確認件数 → 通知一覧 → 現在の合算倍率 → 確認済み・対応済み</div>
     <div><strong>④ 溶媒・設定管理</strong>管理対象の追加／再開。全体管理者はマスタの法令値と限定設定も変更</div>
   </div>
   <p><a href="../チーム共有_実装機能ガイド.html">チーム共有用の操作フローを開く →</a>　／　<a href="../欠品予測_計算方式レビュー.md">予測方式の検討を見る →</a>　／　<a href="http://localhost:3000/preview" target="_blank" rel="noopener noreferrer">ローカルの操作プレビューを開く →</a>（リポジトリで <code>npm run dev</code> を実行）</p>
 </section>
-<p class="reference-note">以下は設計時に作成した静的な画面遷移図です。追加機能の現在の実装状況と正確な操作順は、上の「現在の実装済み操作フロー」と共有ガイドを参照してください。</p>
+<p class="reference-note">以下は設計時に作成した静的な画面遷移図です。図に残る予測線・予測日は初回の画面には表示しません。現在の操作順は、上の「現在の実装済み操作フロー」と共有ガイドを参照してください。</p>
 
 <!-- ========================================================= -->
 <!-- ① 入口（ログイン → ホーム → 各フローへ分岐）               -->

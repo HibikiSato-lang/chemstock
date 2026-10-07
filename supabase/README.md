@@ -11,17 +11,30 @@
 - `migrations/20261003000000_release_queries.sql`：換算・予測設定の限定Queryと、研究室権限に従う欠品予測Query。
 - `migrations/20261003010000_release_management.sql`：管理対象の追加・再開、管理者向けマスタ・設定Query、全体管理者の監査付きCommand。
 
-実Supabase環境への適用とAuth・Data APIを通した動作確認は未実施です。現在のアプリは上記8つのマイグレーションを前提とします。
+実Supabase環境への適用とAuth・Data APIを通した動作確認は未実施です。基本機能は上記8件を前提とし、この試行ブランチの下限到達リスクには後述する9件目を追加します。
 
 `setup.sql` は旧デモ用のスキーマと仮データです。溶媒庫そのものの行や実験室の在庫を含むため、新しい開発DBや本番DBへ実行しません。既存のDBにマイグレーションを適用する場合は、先にスキーマとデータを調べて移行手順を別途作ります。
 
 ## ローカルでの検証
+
+試行ブランチでは既存8件の後に`migrations/20261005000000_stock_risk.sql`を適用します。新しい業務テーブルは追加せず、既存の設定・監査・コマンド受領記録を使います。
+
+### 下限到達リスクの試行
+
+- 新設定`stock_risk_enabled`は初期`false`。通常の画面では初期無効です。
+- 全体管理者が「各種設定 → 下限の見通し（試行）」で有効化し、在庫詳細の「見通しに使う履歴を確認」で確認開始日時・実操作者名・理由を記録します。現場で履歴の完全性を確認した対象だけを指定します。
+- `public.fn_stock_risk(p_room_id uuid default null, p_inventory_id uuid default null)`は認可済み在庫の結果配列を返します。引数なしでは自室（全体管理者は全室）、対象指定時は所属一致をDBで確認します。無効時は認可確認後に空配列を返します。
+- `public.stock_risk_command(p_operation text, p_inventory_id uuid, p_payload jsonb, p_idempotency_key uuid)`は全体管理者限定です。`enable`は在庫IDをnull、payloadに`enabled / operatorName / reason`を渡します。`quality`は在庫IDと`eligible / verifiedFrom / expectedLastUpdated / operatorName / reason`を渡します。`eligible=false`では開始日時は不要です。期待更新日時は取得した在庫の`last_updated`です。
+- 確認・対象解除・有効化は監査付きで再送に対応します。過去の履歴の訂正・取消・遡及登録後は再確認まで割合を返しません。現在量・下限を自動変更せず、下限到達リスクでメールや通知レコードは生成しません。
+- 計算条件は方式v1の暫定値です。実Supabaseへの適用と実データでの評価は未実施です。[設計](../docs/下限到達リスク_設計案.md)を参照してください。
 
 PostgreSQLの`initdb`・`pg_ctl`・`psql`が使える環境で、リポジトリ直下から実行します。
 
 ```bash
 python3 scripts/verify_core_schema.py
 python3 scripts/verify_inventory_commands.py
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify_stock_risk.mjs
+python3 scripts/verify_stock_risk.py
 node --test scripts/verify_email_worker.mjs
 node --test scripts/verify_google_mail_script.mjs
 ```

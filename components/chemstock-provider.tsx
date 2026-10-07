@@ -4,7 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { readAllInventoryLogs } from "@/lib/supabase/inventory-logs";
-import { AdminEmailStatus, AdminManagement, AdminOverview, AppSettings, DataSet, demoData, Forecast, Role } from "@/lib/chemstock-ui";
+import { AdminEmailStatus, AdminManagement, AdminOverview, AppSettings, DataSet, demoData, Role } from "@/lib/chemstock-ui";
+import { calculateStockRisk, RiskReview, StockRisk } from "@/lib/stock-risk";
+import { withStockRiskSample } from "@/lib/stock-risk-sample";
 
 type ChemstockContextValue = {
   data: DataSet | null;
@@ -21,6 +23,13 @@ type ChemstockContextValue = {
   runActivateRoomSolvent: (roomId: string, solventId: string, operatorName: string, reason: string) => Promise<void>;
   runAdminManagementCommand: (operation: "create_solvent" | "update_designated" | "update_setting", targetId: string | null, payload: Record<string, unknown>) => Promise<void>;
   setPreviewRole: (role: Role) => void;
+  stockRisks: StockRisk[];
+  riskLoading: boolean;
+  riskError: string;
+  stockRiskAvailable: boolean;
+  stockRiskEnabled: boolean;
+  runStockRiskCommand: (operation: "enable" | "quality", inventoryId: string | null, payload: Record<string, unknown>) => Promise<void>;
+  loadStockRiskSample: () => void;
   href: (path: string) => string;
 };
 
@@ -53,6 +62,8 @@ export function ChemstockProvider({ children }: { children: React.ReactNode }) {
   const fetchRoute = preview ? "/preview" : pathname;
   const [data, setData] = useState<DataSet | null>(null);
   const [loading, setLoading] = useState(true);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState("");
   const [error, setError] = useState("");
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
@@ -88,16 +99,20 @@ export function ChemstockProvider({ children }: { children: React.ReactNode }) {
       }
       setError("");
       setLoading(false);
+      setRiskLoading(false);
+      setRiskError("");
       return;
     }
     if (outsideDashboard) return;
     let cancelled = false;
     async function fetchData() {
+      setRiskLoading(true);
       if (!dataRef.current) setLoading(true);
       if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
         setError("Supabase の接続設定がありません。画面確認は /preview から行えます。");
         setData(null);
         setLoading(false);
+        setRiskLoading(false);
         return;
       }
       try {
@@ -109,19 +124,26 @@ export function ChemstockProvider({ children }: { children: React.ReactNode }) {
         }
         const accountResult = await client.from("accounts").select("id, room_id, role, login_id").eq("id", auth.data.user.id).single();
         if (accountResult.error || !accountResult.data) throw new Error("アカウント情報を取得できません。基礎DBとアカウントを確認してください。");
-        const [rooms, solvents, stocks, logs, settingsResult, forecastsResult] = await Promise.all([
+        const [rooms, solvents, stocks, logs, settingsResult] = await Promise.all([
           client.from("rooms").select("id, name").order("name"),
           client.from("solvents").select("id, name, cas_number, formula, molecular_weight").order("name"),
           client.from("inventory").select("id, room_id, solvent_id, amount, opening_amount, opened_at, low_stock_threshold, is_active, last_updated"),
           readAllInventoryLogs(client),
           client.rpc("app_settings"),
-          client.rpc("inventory_forecasts"),
         ]);
-        const problem = [rooms, solvents, stocks, settingsResult, forecastsResult].find((result) => result.error)?.error;
+        const problem = [rooms, solvents, stocks, settingsResult].find((result) => result.error)?.error;
         if (problem) throw problem;
         const settings = settingsResult.data as AppSettings;
         if (!settings || !Number.isFinite(Number(settings.unitGalToL)) || !Number.isFinite(Number(settings.unitTokanToL)) || !Number.isInteger(Number(settings.forecastWindowDays))) {
           throw new Error("換算・予測設定を取得できません。もう一度読み込んでください。");
+        }
+        let stockRisks: StockRisk[] = [];
+        let nextRiskError = "";
+        if (settings.stockRiskEnabled) {
+          const risks = await client.rpc("fn_stock_risk");
+          if (risks.error) nextRiskError = risks.error.message;
+          else if (!Array.isArray(risks.data)) nextRiskError = "下限の見通しを取得できません。";
+          else stockRisks = risks.data as StockRisk[];
         }
         let adminOverview: AdminOverview | null = null;
         let adminEmailStatus: AdminEmailStatus | null = null;
@@ -146,13 +168,15 @@ export function ChemstockProvider({ children }: { children: React.ReactNode }) {
           logs,
           audits: [],
           notices: adminOverview?.notifications || [],
-          settings: { unitGalToL: Number(settings.unitGalToL), unitTokanToL: Number(settings.unitTokanToL), forecastWindowDays: Number(settings.forecastWindowDays) },
-          forecasts: (forecastsResult.data || []) as Forecast[],
+          settings: { unitGalToL: Number(settings.unitGalToL), unitTokanToL: Number(settings.unitTokanToL), forecastWindowDays: Number(settings.forecastWindowDays), stockRiskAvailable: settings.stockRiskAvailable === true, stockRiskEnabled: settings.stockRiskEnabled === true },
+          forecasts: [],
+          stockRisks,
           adminOverview,
           adminEmailStatus,
           adminManagement,
         };
         setData(next);
+        setRiskError(nextRiskError);
         setSelectedRoomId((current) => next.account.role === "global_admin" && next.rooms.some((room) => room.id === current)
           ? current : next.account.room_id || next.rooms[0]?.id || "");
         setError("");
@@ -160,7 +184,7 @@ export function ChemstockProvider({ children }: { children: React.ReactNode }) {
       } catch (cause) {
         if (!cancelled) { if (!dataRef.current) setData(null); setError(cause instanceof Error ? cause.message : "データの取得に失敗しました。"); }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) { setLoading(false); setRiskLoading(false); }
       }
     }
     fetchData();
@@ -275,7 +299,51 @@ export function ChemstockProvider({ children }: { children: React.ReactNode }) {
     setSelectedRoomId("room-yamada");
   }, [mutateDemo]);
 
-  const value = useMemo(() => ({ data, loading, error, lastSyncedAt, refresh, preview, selectedRoomId, selectRoom, mutateDemo, runCommand, runNotificationCommand, runActivateRoomSolvent, runAdminManagementCommand, setPreviewRole, href: (path: string) => preview ? `/preview${path === "/protected" ? "" : path}` : path }), [data, loading, error, lastSyncedAt, refresh, preview, selectedRoomId, selectRoom, mutateDemo, runCommand, runNotificationCommand, runActivateRoomSolvent, runAdminManagementCommand, setPreviewRole]);
+  const stockRiskAvailable = preview || data?.settings.stockRiskAvailable === true;
+  const stockRiskEnabled = preview ? data?.settings.stockRiskEnabled !== false : data?.settings.stockRiskEnabled === true;
+  const stockRisks = useMemo(() => {
+    if (!data || !stockRiskEnabled || riskLoading || error || riskError) return [];
+    if (!preview) return data.stockRisks || [];
+    const now = new Date();
+    return data.stocks.filter((stock) => data.account.role === "global_admin" || stock.room_id === data.account.room_id).map((stock) => {
+      const audits = data.audits.filter((audit) => audit.target_type === "inventory" && audit.target_id === stock.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
+      const reviewed = audits.find((audit) => audit.action === "stock_risk_quality");
+      const changed = data.audits.filter((audit) => audit.target_type === "log" && (audit.action === "cancel" || audit.action === "correct") && data.logs.some((log) => log.id === audit.target_id && log.inventory_id === stock.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+      const review = reviewed ? { ...reviewed.after_value, lastInvalidatedAt: changed?.created_at, resumedAt: audits.find((audit) => audit.action === "reactivate")?.created_at } as RiskReview : null;
+      return calculateStockRisk(stock, data.logs, review, now);
+    });
+  }, [data, preview, stockRiskEnabled, riskLoading, error, riskError]);
+
+  const runStockRiskCommand = useCallback(async (operation: "enable" | "quality", inventoryId: string | null, payload: Record<string, unknown>) => {
+    if (dataRef.current?.account.role !== "global_admin") throw new Error("全体管理者のみ変更できます。");
+    if (preview) {
+      const now = new Date().toISOString();
+      mutateDemo((current) => {
+        const target = inventoryId || "stock_risk_enabled";
+        const before = operation === "enable" ? { enabled: current.settings.stockRiskEnabled !== false } : current.audits.filter((audit) => audit.action === "stock_risk_quality" && audit.target_id === target).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.after_value || {};
+        const after = operation === "enable" ? { enabled: payload.enabled } : { eligible: payload.eligible, verifiedFrom: payload.eligible ? payload.verifiedFrom : null, verifiedAt: now };
+        return { ...current, settings: operation === "enable" ? { ...current.settings, stockRiskEnabled: payload.enabled === true } : current.settings,
+          audits: [...current.audits, { id: crypto.randomUUID(), account_id: current.account.id, target_type: operation === "enable" ? "setting" : "inventory", target_id: target, action: operation === "enable" ? "stock_risk_enable" : "stock_risk_quality", operator_name: String(payload.operatorName), reason: String(payload.reason), before_value: before, after_value: after, created_at: now }],
+        };
+      });
+      return;
+    }
+    const signature = JSON.stringify([dataRef.current?.account.id, "stock_risk", operation, inventoryId, payload]);
+    const { error } = await createClient().rpc("stock_risk_command", { p_operation: operation, p_inventory_id: inventoryId, p_payload: payload, p_idempotency_key: pendingKeyFor(signature) });
+    if (error) {
+      if (error.message === "VERSION_CONFLICT") throw new Error("在庫が更新されています。画面を更新して履歴を確認してください。");
+      throw new Error(error.message === "INVALID_COMMAND" ? "確認期間・実操作者名・理由を確認してください。" : error.message);
+    }
+    clearPendingKey(signature);
+    refresh();
+  }, [preview, mutateDemo, refresh]);
+
+  const loadStockRiskSample = useCallback(() => {
+    mutateDemo((current) => withStockRiskSample(current));
+    setSelectedRoomId("room-yamada");
+  }, [mutateDemo]);
+
+  const value = useMemo(() => ({ data, loading, error, lastSyncedAt, refresh, preview, selectedRoomId, selectRoom, mutateDemo, runCommand, runNotificationCommand, runActivateRoomSolvent, runAdminManagementCommand, setPreviewRole, stockRisks, riskLoading, riskError, stockRiskAvailable, stockRiskEnabled, runStockRiskCommand, loadStockRiskSample, href: (path: string) => preview ? `/preview${path === "/protected" ? "" : path}` : path }), [data, loading, error, lastSyncedAt, refresh, preview, selectedRoomId, selectRoom, mutateDemo, runCommand, runNotificationCommand, runActivateRoomSolvent, runAdminManagementCommand, setPreviewRole, stockRisks, riskLoading, riskError, stockRiskAvailable, stockRiskEnabled, runStockRiskCommand, loadStockRiskSample]);
   return <ChemstockContext.Provider value={value}>{children}</ChemstockContext.Provider>;
 }
 

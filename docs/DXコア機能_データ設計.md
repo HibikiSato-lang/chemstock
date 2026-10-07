@@ -231,6 +231,10 @@ select count(*) from public.notifications where status = 'unread';
 
 ## 3. F2 欠品予測のデータロジック
 
+**2026-10-05の方針：この節のSQLと予測不能条件は現行方式の記録であり、初回リリースの採用方式ではない。** 初回は予測日を表示せず、在庫・下限・有効な入出庫履歴による残量推移だけを使う。予測の計算方式、参照期間、API応答の扱いは今後検討する。
+
+別案の[下限到達リスクの設計案](下限到達リスク_設計案.md)に、H日間出庫量の分布、記録開始・品質条件、Query/API、評価方法をまとめた。既存データを読む設計案であり、以下の平均方式SQLを新方式へ変更・有効化したものではない。
+
 **新規テーブルは作らない**。予測は `inventory_logs` からのオンデマンド計算とする
 （履歴が正であり、予測値を保存すると実績との二重管理になるため）。
 
@@ -316,7 +320,7 @@ grant execute on function public.fn_stock_forecast(uuid) to authenticated;
 |---|---|
 | `inventory_logs.user_name` | 現行実装の列名。ER図の `operator_name` への改名は取消・編集機能の実装範囲であり、本機能は列名に依存しない（`change_amount`・`occurred_at`・`status`を使用） |
 | `inventory_logs.occurred_at` | 入出庫時に省略された場合はサーバー時刻。過去日時の登録・訂正は監査し、欠品予測と実績推移は訂正後の発生日時で再計算する。`created_at`は登録日時として不変 |
-| `inventory_logs.status` | 取消機能と欠品予測を初回リリースで提供するため、DBとAPIの保存値を`active` / `cancelled`に統一し、予測クエリは`status='active'`の履歴だけを使う |
+| `inventory_logs.status` | 取消済みの履歴を残量実績から除外するため、DBとAPIの保存値を`active` / `cancelled`に統一する。将来の予測でも有効な履歴だけを使う |
 | 物理削除しない原則 | notifications は削除せず `status` 遷移のみ。設定変更・通知ステータス変更は `operation_audits`（実装後）に記録 |
 | 単位 | 入力画面は`settings.unit_gal_to_l`・`unit_tokan_to_l`でLに換算し、確定前に保存するL値を表示する。DB・APIの計算と保存は基準単位L、表示は同じ係数で逆換算する。係数の欠落・不正時は入力を止める |
 | 可視性 | 指定数量ビューは非公開スキーマに置き、管理者認可付きQuery RPCから全室集計を読む。研究室別の直接参照はRLS、列の非公開は列単位権限で制限する。`fn_stock_forecast` は引数だけを信用せず、DB内で`auth.uid()`と所属を照合する |
@@ -331,9 +335,8 @@ flowchart LR
   C -->|1.0以上| D[notifications INSERT]
   C -->|0.8以上1.0未満| W[指定数量モニター 接近表示]
   D --> N[通知一覧/未確認バッジ/モニター 表示]
-  B -.表示時に参照.-> H[fn_stock_forecast]
-  I[inventory_logs] -.直近N日の出庫.-> H
-  H --> J[ホーム予測行/グラフ予測線]
+  B --> R[ホーム下限状態/グラフ残量実績]
+  I[inventory_logs] --> R
 ```
 
 ## 6. 前提（他機能への依存）
