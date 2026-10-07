@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { demoData } from "../lib/chemstock-ui.ts";
+import { activateDemoStock, demoReviewState, editedOccurredAt, localDateTime, reviewStartInput, sameVersion, withDemoVersions } from "../lib/inventory-review.ts";
+import { withStockRiskSample } from "../lib/stock-risk-sample.ts";
+import { calculateStockRisk, stockRiskText } from "../lib/stock-risk.ts";
+
+assert.equal(reviewStartInput("2026-10-08T03:00:40.000001Z"), "2026-10-08T12:00:41");
+assert.equal(reviewStartInput("2026-10-08T03:00:40.000000Z"), "2026-10-08T12:00:40");
+const original = "2026-10-08T03:00:50.123456+00:00";
+assert.equal(editedOccurredAt(original, localDateTime(original)), original);
+assert.equal(editedOccurredAt(original, localDateTime("2026-10-08T03:01:25.000Z")), "2026-10-08T03:01:25.000Z");
+assert.ok(sameVersion(original, "2026-10-08T12:00:50.123456+09:00"));
+assert.ok(!sameVersion(original, "2026-10-08T03:00:50.123457Z"));
+assert.ok(!sameVersion(original, undefined));
+
+const normalizedDemo = withDemoVersions(demoData);
+assert.ok(normalizedDemo.stocks.every((item) => item.last_updated));
+assert.ok(normalizedDemo.logs.every((item) => item.updated_at && item.created_at));
+const now = new Date("2026-10-08T04:00:00Z");
+const data = withStockRiskSample(structuredClone(demoData), now);
+const stock = data.stocks.find((item) => item.id === "stock-methanol");
+const reviewed = demoReviewState(data, stock.id);
+assert.ok(reviewed.eligible && reviewed.auditId);
+const risk = calculateStockRisk(stock, data.logs, reviewed, now);
+assert.equal(risk.status, "ready");
+assert.match(stockRiskText(risk), /過去180日.*7日分.*余裕量2 L.*約86%/);
+const disabled = { ...data, settings: { ...data.settings, stockRiskEnabled: false } };
+assert.deepEqual(demoReviewState(disabled, stock.id), reviewed);
+
+const stopped = { ...data, stocks: data.stocks.map((item) => item.id === stock.id ? { ...item, is_active: false } : item) };
+const restarted = activateDemoStock(stopped, stock.room_id, stock.solvent_id, "確認者", "再開", now.toISOString());
+const audit = restarted.audits[0];
+assert.equal(audit.action, "reactivate");
+assert.equal(audit.operator_name, "確認者");
+assert.equal(audit.reason, "再開");
+assert.equal(audit.before_value.inventory.is_active, false);
+assert.equal(audit.after_value.inventory.is_active, true);
+const resumedRisk = calculateStockRisk(restarted.stocks.find((item) => item.id === stock.id), restarted.logs, { ...reviewed, resumedAt: audit.created_at }, now);
+assert.equal(resumedRisk.status, "insufficient_history");
+assert.equal(resumedRisk.referenceDays, 0);
+assert.equal(resumedRisk.historicalReachRate, null);
+assert.equal(activateDemoStock(restarted, stock.room_id, stock.solvent_id, "確認者", "再開", now.toISOString()), restarted);
+
+const created = activateDemoStock(data, "synthetic-room", stock.solvent_id, "確認者", "追加", now.toISOString());
+assert.equal(created.audits[0].action, "activate");
+assert.deepEqual(created.audits[0].before_value, {});
+assert.equal(created.audits[0].after_value.inventory.amount, 0);
+const unverified = demoReviewState(created, created.audits[0].target_id);
+assert.equal(unverified.auditId, null);
+assert.equal(unverified.eligible, false);
+console.log("review fixes: exact datetime, microsecond revisions, review metadata and audited demo activation/resumption verified");

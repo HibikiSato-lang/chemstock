@@ -11,7 +11,7 @@ export function withStockRiskSample(data: DataSet, now = new Date()): DataSet {
     purpose: "見通しの表示確認用（合成データ）", status: "active", occurred_at: ago(i * 7 + 1),
     created_at: ago(i * 7 + 1), updated_at: ago(i * 7 + 1),
   }));
-  const sampleStock = { ...stock, opening_amount: 61, amount: 6, low_stock_threshold: 4, opened_at: openedAt, is_active: true };
+  const sampleStock = { ...stock, opening_amount: 61, amount: 6, low_stock_threshold: 4, opened_at: openedAt, last_updated: now.toISOString(), is_active: true };
   return {
     ...data, settings: { ...data.settings, stockRiskAvailable: true, stockRiskEnabled: true },
     stocks: data.stocks.map((item) => item.id === stock.id ? sampleStock : item),

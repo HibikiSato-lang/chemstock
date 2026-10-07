@@ -117,7 +117,7 @@ export function stockRiskText(risk: StockRisk): string {
     if (k === 0) return `参照した${risk.horizonDays}日間の区間には、${amount}以上の出庫はありません。`;
     if (k === n) return `参照したすべての${risk.horizonDays}日間の区間で、${amount}以上を出庫しています。`;
     const percent = k / n < 0.01 ? "1%未満" : `約${Math.round(k / n * 100)}%`;
-    return `過去の${risk.horizonDays}日間の区間の${percent}で、${amount}以上を出庫しています。`;
+    return `過去${risk.referenceDays}日の履歴で、${risk.horizonDays}日分の出庫が余裕量${amount}以上だった割合：${percent}。`;
   }
   if (risk.status === "inactive") return "利用停止中です。";
   if (risk.status === "threshold_not_set") return "下限値が未設定です。";

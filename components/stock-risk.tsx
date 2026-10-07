@@ -4,7 +4,8 @@ import Link from "next/link";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useChemstock } from "./chemstock-provider";
-import { formatAmount, Stock } from "@/lib/chemstock-ui";
+import { formatAmount, Stock, StockRiskReviewState } from "@/lib/chemstock-ui";
+import { demoReviewState, reviewStartInput, sameVersion } from "@/lib/inventory-review";
 import { StockRisk, stockRiskText } from "@/lib/stock-risk";
 
 const reasonLabels: Record<string, string> = {
@@ -54,8 +55,9 @@ export function StockRiskDetails({ stock }: { stock: Stock }) {
     {ctx.riskLoading ? <p role="status">見通しを更新しています…</p> : ctx.error || ctx.riskError || !risk || !matches(risk, stock) ? <><p>見通しを確認できません。画面を更新してください。</p><button className="cs-small-button" onClick={ctx.refresh}>更新</button></> : <>
       {risk.marginAmount != null && risk.marginAmount > 0 && <p>下限まで <strong>{formatAmount(risk.marginAmount)}</strong></p>}
       <p>{stockRiskText(risk)}</p>
+      {ctx.data?.account.role !== "global_admin" && risk.reasonCodes.some((code) => code === "history_quality_unverified" || code === "history_changed_since_review") && <p className="cs-muted">全体管理者に履歴の確認を依頼してください。</p>}
       {risk.reasonCodes.map((code) => <p className="cs-muted" key={code}>{reasonLabels[code] || "履歴の日時・数量・確認期間を確認してください。"}</p>)}
-      {risk.status === "ready" && <p className="cs-muted">補充がない場合の参考として、使用予定と残量を確認してください。</p>}
+      {risk.status === "ready" && <p className="cs-muted">補充がない場合の参考です。過去の出庫の割合であり、将来の確率や安全の保証ではありません。</p>}
       {risk.referenceDays != null && <details className="cs-risk-evidence"><summary>計算の根拠</summary>
         <dl><dt>参照期間</dt><dd>{risk.referenceDays}日（{risk.historyStartAt && when(risk.historyStartAt)}〜{when(risk.historyEndAt)}）</dd>
           <dt>使用した7日間の区間</dt><dd>{risk.sampleWindowCount}区間{risk.reachedWindowCount != null && ` ／ 余裕量以上の出庫 ${risk.reachedWindowCount}区間`}</dd>
@@ -81,14 +83,18 @@ export function StockRiskHomeRows({ stocks }: { stocks: Stock[] }) {
     return <Link className="cs-alert-row cs-risk-row" href={ctx.href(`/inventory/detail/${stock.id}`)} key={stock.id}><span><strong>{name(stock)}：使用予定を確認</strong><small>{stockRiskText(risk)}</small></span><ChevronRight size={15} /></Link>;
   };
   return <div className="cs-card cs-alert cs-risk-home"><strong className="cs-alert-title"><AlertTriangle size={18} />在庫のお知らせ</strong>
-    {low.map((stock) => <Link className="cs-alert-row" href={ctx.href(`/inventory/detail/${stock.id}`)} key={stock.id}>{name(stock)}：下限以下（残量 {formatAmount(stock.amount)}）<ChevronRight size={15} /></Link>)}
+    {low.length > 0 && <p className="cs-muted">下限以下：{low.length}件</p>}
+    {low.slice(0, 3).map((stock) => <Link className="cs-alert-row" href={ctx.href(`/inventory/detail/${stock.id}`)} key={stock.id}>{name(stock)}：下限以下（残量 {formatAmount(stock.amount)}）<ChevronRight size={15} /></Link>)}
+    {low.length > 3 && <details><summary>他{low.length - 3}件</summary>{low.slice(3).map((stock) => <Link className="cs-alert-row" href={ctx.href(`/inventory/detail/${stock.id}`)} key={stock.id}>{name(stock)}：下限以下（残量 {formatAmount(stock.amount)}）<ChevronRight size={15} /></Link>)}</details>}
     {risks.length > 0 && <><p className="cs-muted">7日間の出庫を踏まえた見通し</p>{risks.slice(0, 3).map(row)}{risks.length > 3 && <details><summary>他{risks.length - 3}件</summary>{risks.slice(3).map(row)}</details>}</>}
   </div>;
 }
 
 export function StockRiskQualityControl({ stock }: { stock: Stock }) {
   const ctx = useChemstock();
-  const [from, setFrom] = useState(() => new Date(Math.ceil(new Date(stock.opened_at).getTime() / 1000) * 1000 + 9 * 3600000).toISOString().slice(0, 19));
+  const [open, setOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState<StockRiskReviewState | null>(null);
+  const [from, setFrom] = useState(() => reviewStartInput(stock.opened_at));
   const [operator, setOperator] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -97,8 +103,17 @@ export function StockRiskQualityControl({ stock }: { stock: Stock }) {
   const [pendingEligible, setPendingEligible] = useState<boolean | null>(null);
   const sending = useRef(false);
   if (ctx.data?.account.role !== "global_admin" || !ctx.stockRiskAvailable) return null;
+  const review = ctx.preview && ctx.data ? demoReviewState(ctx.data, stock.id) : ctx.data?.stockRiskReviews?.find((item) => item.inventoryId === stock.id);
+  const stale = !snapshot || !review || !sameVersion(snapshot.inventoryLastUpdated, stock.last_updated)
+    || !sameVersion(review.inventoryLastUpdated, stock.last_updated) || snapshot.auditId !== review.auditId;
+  const beginReview = () => {
+    setSnapshot(review ? { ...review } : null);
+    setFrom(reviewStartInput(review?.verifiedFrom || stock.opened_at));
+    setOperator(""); setReason(""); setError(""); setSaved(""); setPendingEligible(null);
+  };
   const save = async (eligible: boolean, confirmed = false) => {
     if (sending.current) return;
+    if (stale || ctx.error || ctx.riskLoading) { setPendingEligible(null); setError("在庫または確認状態が更新されています。最新の履歴を確認して入力し直してください。"); return; }
     const date = new Date(`${from}+09:00`);
     if (!operator.trim() || !reason.trim() || (eligible && (!Number.isFinite(date.getTime()) || date.getTime() < Date.parse(stock.opened_at) || date.getTime() > Date.now()))) { setError("確認期間・実操作者名・理由を入力してください。"); return; }
     if (!ctx.preview && !stock.last_updated) { setError("更新日時を取得できません。画面を更新してください。"); return; }
@@ -106,19 +121,23 @@ export function StockRiskQualityControl({ stock }: { stock: Stock }) {
     setPendingEligible(null);
     sending.current = true; setSaving(true); setError(""); setSaved("");
     try {
-      await ctx.runStockRiskCommand("quality", stock.id, { eligible, verifiedFrom: eligible ? date.toISOString() : null, operatorName: operator.trim(), reason: reason.trim(), expectedLastUpdated: stock.last_updated });
+      await ctx.runStockRiskCommand("quality", stock.id, { eligible, verifiedFrom: eligible ? date.toISOString() : null, operatorName: operator.trim(), reason: reason.trim(), expectedLastUpdated: snapshot!.inventoryLastUpdated, expectedReviewAuditId: snapshot!.auditId });
       setOperator(""); setReason("");
       setSaved(eligible ? "履歴の確認を保存しました。" : "確認対象から外しました。");
+      setOpen(false);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "保存できませんでした。"); }
     finally { sending.current = false; setSaving(false); }
   };
-  return <details className="cs-card cs-risk-quality"><summary>見通しに使う履歴を確認（全体管理者）</summary><p className="cs-muted">出庫・訂正の記録に漏れがないことを確認した期間を指定します。確認内容と理由を監査に残します。</p>
+  return <><details className="cs-card cs-risk-quality" open={open}><summary onClick={(event) => { event.preventDefault(); if (saving) return; if (!open) beginReview(); setOpen(!open); }}>見通しに使う履歴を確認（全体管理者）：{!review ? "取得できません" : !review.auditId ? "未確認" : review.eligible ? "確認済み" : "確認対象から除外"}</summary>
+    <p>現在の確認状態：<strong>{!review ? "取得できません" : !review.auditId ? "未確認" : review.eligible ? "確認済み" : "確認対象から除外"}</strong></p>
+    {review?.verifiedAt && <p className="cs-muted">最終確認 {when(review.verifiedAt)} ／ {review.operatorName}<br />{review.verifiedFrom && <>確認期間の開始 {when(review.verifiedFrom)}<br /></>}{review.reason}</p>}
+    {stale && <div className="cs-message" role="alert">最新の在庫・履歴と確認状態を確認してください。<button type="button" className="cs-small-button" disabled={saving || ctx.riskLoading || !!ctx.error || !review || !sameVersion(review.inventoryLastUpdated, stock.last_updated)} onClick={beginReview}>最新の履歴を確認して入力し直す</button><button type="button" className="cs-small-button" disabled={saving} onClick={ctx.refresh}>画面を更新</button></div>}<p className="cs-muted">出庫・訂正の記録に漏れがないことを確認した期間を指定します。確認内容と理由を監査に残します。</p>
     <form onSubmit={(event) => { event.preventDefault(); void save(true); }}><label className="cs-field">確認した期間の開始（日本時間）<input type="datetime-local" step="1" value={from} onChange={(event) => setFrom(event.target.value)} required /></label>
       <label className="cs-field">実操作者名 <em>必須</em><input value={operator} maxLength={100} onChange={(event) => setOperator(event.target.value)} required /></label>
       <label className="cs-field">確認内容・理由 <em>必須</em><input value={reason} maxLength={200} onChange={(event) => setReason(event.target.value)} required /></label>
-      {error && <p className="cs-message" role="alert">{error}</p>}{saved && <p role="status">{saved}</p>}<div className="cs-actions"><button className="cs-button" disabled={saving || !stock.is_active}>確認済みとして保存</button><button type="button" className="cs-button cs-secondary" disabled={saving} onClick={() => { void save(false); }}>確認対象から外す</button></div></form>
+      {error && <p className="cs-message" role="alert">{error}</p>}<div className="cs-actions"><button className="cs-button" disabled={saving || stale || !!ctx.error || ctx.riskLoading || !stock.is_active}>確認済みとして保存</button><button type="button" className="cs-button cs-secondary" disabled={saving || stale || !!ctx.error || ctx.riskLoading} onClick={() => { void save(false); }}>確認対象から外す</button></div></form>
     {pendingEligible !== null && <RiskConfirmation title={pendingEligible ? "履歴の確認を保存しますか？" : "確認対象から外しますか？"} description={pendingEligible ? "指定した期間の出庫履歴を確認済みとして、実操作者名と理由を記録します。" : "この在庫の見通し表示を抑止し、実操作者名と理由を記録します。"} onCancel={() => setPendingEligible(null)} onConfirm={() => { void save(pendingEligible, true); }} />}
-  </details>;
+  </details>{saved && <p className="cs-card cs-muted" role="status">{saved}</p>}</>;
 }
 
 export function StockRiskEnableControl() {

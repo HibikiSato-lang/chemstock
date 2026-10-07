@@ -9,7 +9,7 @@ export async function readAllInventoryLogs(client: ReturnType<typeof createClien
 
   while (true) {
     let query = client.from("inventory_logs")
-      .select("id, inventory_id, change_amount, operator_name, purpose, status, occurred_at");
+      .select("id, inventory_id, change_amount, operator_name, purpose, status, occurred_at, created_at, updated_at");
     if (lastId) query = query.gt("id", lastId);
     const result = await query.order("id", { ascending: true }).limit(LOG_BATCH_SIZE);
     if (result.error) throw result.error;

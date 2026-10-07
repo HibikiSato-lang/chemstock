@@ -39,7 +39,7 @@ export function StockTrend({ stock, logs, periodDays, name, roomName }: { stock:
         <text x="38" y="184" fontSize="10" fill="#66766e">{new Date(start).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}</text>
         <text x={Math.min(280, Math.max(55, x(now) - 12))} y="184" fontSize="10" fill="#66766e">今日</text>
       </svg>
-      <p className="cs-chart-legend">実線：入出庫の実績</p>
+      <p className="cs-chart-legend">実線：入出庫の記録点を直線で接続（記録間は補間）</p>
     </div>
     <div className="cs-card"><div className="cs-metrics"><div><small>現在残量</small><strong>{formatAmount(stock.amount)}</strong></div><div><small>下限</small><strong>{stock.low_stock_threshold == null ? "未設定" : formatAmount(stock.low_stock_threshold)}</strong></div></div><p className="cs-threshold-status">{stateText}</p></div>
   </>;

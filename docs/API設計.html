@@ -862,9 +862,11 @@
       <div class="sourceCode" id="cb6"><pre
       class="sourceCode json"><code class="sourceCode json"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;operatorName&quot;</span><span class="fu">:</span> <span class="st">&quot;佐藤花子&quot;</span><span class="fu">,</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;reason&quot;</span><span class="fu">:</span> <span class="st">&quot;入力する溶媒を誤った&quot;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;reason&quot;</span><span class="fu">:</span> <span class="st">&quot;入力する溶媒を誤った&quot;</span><span class="fu">,</span></span>
+<span>  <span class="dt">&quot;expectedLogUpdated&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-07-10T05:30:00Z&quot;</span></span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
       <ul>
+      <li>取消画面を開いた時点の <code>updated_at</code> を <code>expectedLogUpdated</code> として必須で渡す。DBでロック後に版を照合し、不一致は <code>VERSION_CONFLICT</code>（HTTP経路は409）とする。同じ再送キーの成功済み要求は版チェック前に結果を返す。</li>
       <li>対象履歴が <code>active</code> であることを確認する。</li>
       <li>元の <code>change_amount</code> を反転して在庫を戻す。</li>
       <li>戻し後の在庫が負数になる場合は409とし、管理者による棚卸調整が必要とする。</li>
@@ -885,9 +887,11 @@
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;occurredAt&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-07-09T03:00:00Z&quot;</span></span>
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
 <span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;changedByName&quot;</span><span class="fu">:</span> <span class="st">&quot;佐藤花子&quot;</span><span class="fu">,</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;reason&quot;</span><span class="fu">:</span> <span class="st">&quot;使用量の転記ミス&quot;</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;reason&quot;</span><span class="fu">:</span> <span class="st">&quot;使用量の転記ミス&quot;</span><span class="fu">,</span></span>
+<span>  <span class="dt">&quot;expectedLogUpdated&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-07-10T05:30:00Z&quot;</span></span>
 <span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
       <ul>
+      <li>編集開始時の <code>updated_at</code> を <code>expectedLogUpdated</code> として必須で渡し、取消と同じ競合制御を行う。画面の自動更新で期待版を差し替えない。日時を編集しない場合は元の <code>occurred_at</code> の秒・小数秒を保持する。</li>
       <li>旧 <code>change_amount</code> と新 <code>change_amount</code>
       の差分だけを在庫に反映する。</li>
       <li>訂正後在庫が負数になる変更は409とする。</li>

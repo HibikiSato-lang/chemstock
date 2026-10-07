@@ -131,6 +131,12 @@ def main() -> None:
             for actor in (LAB, OTHER):
                 fail(cmd_statement(actor, "enable", None, enable, 500), "UNAUTHORIZED")
             fail(cmd_statement(GLOBAL, "enable", None, {**enable, "operatorName": " "}, 500), "INVALID_COMMAND")
+            # Global admins can inspect review metadata while display is disabled.
+            metadata = json.loads(sql(auth(GLOBAL, "select public.stock_risk_reviews()")))
+            assert len(metadata) == 2 and all(item["auditId"] is None for item in metadata)
+            for actor in (LAB, OTHER):
+                fail(auth(actor, "select public.stock_risk_reviews()"), "UNAUTHORIZED")
+            fail("set role anon; select public.stock_risk_reviews()", "permission denied")
             enabled = command("enable", None, enable, 501)
             assert command("enable", None, enable, 501) == enabled
             fail(cmd_statement(GLOBAL, "enable", None, {**enable, "enabled": False}, 501), "IDEMPOTENCY_KEY_REUSED")
@@ -146,12 +152,16 @@ def main() -> None:
             assert read()[0]["reasonCodes"] == ["history_quality_unverified"]
             revision = sql(f"select last_updated from public.inventory where id='{STOCK}'")
             quality = {"eligible": True, "verifiedFrom": s["opened_at"], "expectedLastUpdated": revision,
-                       "operatorName": "Synthetic admin", "reason": "Confirmed complete synthetic history"}
+                       "operatorName": "Synthetic admin", "reason": "Confirmed complete synthetic history", "expectedReviewAuditId": None}
             fail(cmd_statement(LAB, "quality", STOCK, quality, 502), "UNAUTHORIZED")
             fail(cmd_statement(GLOBAL, "quality", STOCK, {**quality, "expectedLastUpdated": s["opened_at"]}, 502), "VERSION_CONFLICT")
             verified = command("quality", STOCK, quality, 503)
             assert command("quality", STOCK, quality, 503) == verified
             assert sql("select count(*) from public.operation_audits where action='stock_risk_quality'") == "1"
+            fail(cmd_statement(GLOBAL, "quality", STOCK, {key: value for key, value in quality.items() if key != "expectedReviewAuditId"}, 520), "INVALID_COMMAND")
+            fail(cmd_statement(GLOBAL, "quality", STOCK, quality, 521), "VERSION_CONFLICT")
+            meta = next(item for item in json.loads(sql(auth(GLOBAL, "select public.stock_risk_reviews()"))) if item["inventoryId"] == STOCK)
+            assert meta["auditId"] == verified["auditId"] and meta["eligible"] is True
             risk = read()[0]
             assert risk["status"] == "ready" and risk["reachedWindowCount"] == 149, risk
             assert risk["windowOutbound"] == {"median": 2.5, "p95": 2.5, "max": 2.5}
@@ -159,21 +169,30 @@ def main() -> None:
             assert sql("select count(*) from public.notifications") == "0"
             assert sql("select count(*) from private.email_notification_deliveries") == "0"
             # A real cancel command changes the historical evidence and suppresses the rate.
+            log_version = sql(f"select updated_at from public.inventory_logs where id='{sample['logs'][0]['id']}'")
+            cancel_payload = {"operatorName": "Synthetic student", "reason": "Wrong record", "expectedLogUpdated": log_version}
             sql(auth(LAB, f"select public.inventory_command('cancel','{sample['logs'][0]['id']}',"
-                          "'{\"operatorName\":\"Synthetic student\",\"reason\":\"Wrong record\"}',"
-                          f"'{UUID}000000000504')"))
+                          f"{json_sql(cancel_payload)}, '{UUID}000000000504')"))
             changed = read()[0]
             assert changed["status"] == "data_quality_issue"
             assert changed["reasonCodes"] == ["history_changed_since_review"]
             assert changed["historicalReachRate"] is None
             revision = sql(f"select last_updated from public.inventory where id='{STOCK}'")
             quality["expectedLastUpdated"] = revision
-            command("quality", STOCK, quality, 505)
+            quality["expectedReviewAuditId"] = verified["auditId"]
+            confirmed = command("quality", STOCK, quality, 505)
             assert read()[0]["status"] == "ready"
-            command("quality", STOCK, {**quality, "eligible": False}, 506)
+            quality["expectedReviewAuditId"] = confirmed["auditId"]
+            revoked = command("quality", STOCK, {**quality, "eligible": False}, 506)
+            # Quality writes do not change stock.last_updated; the independent token rejects stale approval.
+            fail(cmd_statement(GLOBAL, "quality", STOCK, quality, 522), "VERSION_CONFLICT")
+            assert command("quality", STOCK, {**quality, "eligible": False}, 506) == revoked
+            assert next(item for item in json.loads(sql(auth(GLOBAL, "select public.stock_risk_reviews()"))) if item["inventoryId"] == STOCK)["auditId"] == revoked["auditId"]
             assert read()[0]["reasonCodes"] == ["history_quality_unverified"]
             command("enable", None, {**enable, "enabled": False}, 507)
             assert read() == []
+            disabled_meta = next(item for item in json.loads(sql(auth(GLOBAL, "select public.stock_risk_reviews()"))) if item["inventoryId"] == STOCK)
+            assert disabled_meta["auditId"] == revoked["auditId"] and disabled_meta["eligible"] is False
             print(f"stock risk SQL: {len(cases)} TypeScript parity cases; scope, enable/review, replay, audit and cancellation verified")
         finally:
             subprocess.run([pg_ctl, "-D", str(data), "stop", "-m", "immediate"],

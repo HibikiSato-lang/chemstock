@@ -32,3 +32,4 @@
 .cs-risk-evidence dl{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,1.5fr);gap:8px;font-size:12px;margin:12px 0}.cs-risk-evidence dt{color:#52675a}.cs-risk-evidence dd{margin:0;overflow-wrap:anywhere}
 .cs-risk-row span:first-child{min-width:0}.cs-risk-row small{display:block;font-size:11px;line-height:1.6;font-weight:400;margin-top:4px}.cs-risk-home summary{font-size:13px;cursor:pointer;min-height:36px;padding-top:8px}
 .cs-demo-bar{flex-wrap:wrap;gap:8px}.cs-risk-quality .cs-muted{font-size:12px;line-height:1.7}
+.cs-big-amount.cs-low-amount{color:#9a3b2d}.cs-detail-hero>.cs-low-label{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;line-height:1.6;margin:8px 0 14px}.cs-detail-hero>details{font-size:12px;text-align:left;margin:14px 0}.cs-detail-hero>details>summary{cursor:pointer;color:#2e6b58}.cs-risk-quality>p{margin-top:12px}.cs-message .cs-small-button{margin-top:8px;margin-right:6px}

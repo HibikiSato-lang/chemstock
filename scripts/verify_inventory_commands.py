@@ -126,18 +126,30 @@ def main() -> None:
             occurred_at = movement["log"]["occurred_at"]
             correction = command(LAB_A, "correct", log_id, {
                 "changeAmount": 3, "operatorName": "Student A",
-                "occurredAt": occurred_at, "changedByName": "Editor", "reason": "Transcription error"
+                "expectedLogUpdated": movement["log"]["updated_at"], "occurredAt": occurred_at, "changedByName": "Editor", "reason": "Transcription error"
             }, 404)
             assert float(correction["inventory"]["amount"]) == 13
             assert sql("select operator_name || '|' || reason from public.operation_audits") == \
                 "Editor|Transcription error"
+            # A different operator edited the record after our screen snapshot.
+            stale_payload = {"changeAmount": 4, "operatorName": "Student A", "occurredAt": occurred_at,
+                             "changedByName": "Stale editor", "reason": "Old screen", "expectedLogUpdated": movement["log"]["updated_at"]}
+            for op, payload in (("correct", stale_payload), ("cancel", {"operatorName": "Stale canceller", "reason": "Old screen", "expectedLogUpdated": movement["log"]["updated_at"]})):
+                body = json.dumps(payload).replace("'", "''")
+                expect_error(f"set role authenticated; set request.jwt.claim.sub = '{LAB_A}'; select public.inventory_command('{op}', '{log_id}', '{body}'::jsonb, '00000000-0000-0000-0000-000000000490');", "VERSION_CONFLICT")
+            assert sql("select count(*) from public.operation_audits") == "1"
+            assert command(LAB_A, "correct", log_id, {
+                "changeAmount": 3, "operatorName": "Student A", "expectedLogUpdated": movement["log"]["updated_at"],
+                "occurredAt": occurred_at, "changedByName": "Editor", "reason": "Transcription error"
+            }, 404) == correction
+            expect_error(f"set role authenticated; set request.jwt.claim.sub = '{LAB_A}'; select public.inventory_command('cancel', '{log_id}', '{{\"operatorName\":\"Missing version\",\"reason\":\"Old client\"}}', '00000000-0000-0000-0000-000000000491');", "INVALID_LOG_VERSION")
             cancellation = command(LAB_A, "cancel", log_id,
-                                   {"operatorName": "Canceller", "reason": "Wrong entry"}, 405)
+                                   {"operatorName": "Canceller", "reason": "Wrong entry", "expectedLogUpdated": correction["log"]["updated_at"]}, 405)
             assert float(cancellation["inventory"]["amount"]) == 10
             assert cancellation["log"]["status"] == "cancelled"
             assert sql("select count(*) from public.operation_audits") == "2"
             assert command(LAB_A, "cancel", log_id,
-                           {"operatorName": "Canceller", "reason": "Wrong entry"}, 405) == cancellation
+                           {"operatorName": "Canceller", "reason": "Wrong entry", "expectedLogUpdated": correction["log"]["updated_at"]}, 405) == cancellation
             assert sql("select count(*) from public.operation_audits") == "2"
 
             updated_at = cancellation["inventory"]["last_updated"]
@@ -161,7 +173,7 @@ def main() -> None:
             expect_error(
                 f"set role authenticated; set request.jwt.claim.sub = '{LAB_A}'; "
                 f"select public.inventory_command('cancel', '{log_id}', "
-                "'{\"operatorName\":\"Canceller\",\"reason\":\"Again\"}'::jsonb, "
+                f"'{{\"operatorName\":\"Canceller\",\"reason\":\"Again\",\"expectedLogUpdated\":\"{cancellation['log']['updated_at']}\"}}'::jsonb, "
                 "'00000000-0000-0000-0000-000000000410');",
                 "INVALID_LOG_STATE",
             )
