@@ -93,7 +93,7 @@
       <h3>1. 入出庫を記録し、履歴で確認する</h3>
       <p>共有アカウントなので、保存のたびに<strong>実際に操作した人の名前</strong>を入力します。研究室・溶媒庫管理のアカウントでは対象研究室を所属から決め、全体管理者だけが研究室を選択します。</p>
       <ol class="steps"><li>ホームから「入庫・使用を記録」<div class="path">/preview</div></li><li>「残量調整」で溶媒を選択<div class="path">/inventory/adjust</div></li><li>追加／使用、正の数量、単位、実操作者を入力<div class="path">/inventory/action/add</div></li><li>現在量・変量・更新後残量を確認して実行<div class="path">…/confirm</div></li><li>完了後、履歴で記録を確認。誤りは理由を添えて訂正・取消<div class="path">/inventory/history</div></li></ol>
-      <div class="callout">数量の符号は「追加／使用」から決まり、負数の入力は保存前に止めます。後日登録には実際の入出庫日時を指定できます。訂正・取消は元の履歴を消さず、監査記録を残します。</div>
+      <div class="callout">数量の符号は「追加／使用」から決まり、初期選択は「使用」です。負数の入力は保存前に止めます。通常登録の日時は保存時に自動記録します。訂正・取消は元の履歴を消さず、監査記録を残します。</div>
       <div class="links"><a href="http://localhost:3000/preview/inventory/adjust" target="_blank" rel="noopener noreferrer">この操作から試す →</a></div>
     </div>
     <div class="flow" id="forecast">

@@ -12,10 +12,11 @@ import { DataSet, DemoAudit, formatAmount, formatDate, movementAmount, Role, Sto
 import { activateDemoStock, editedOccurredAt, localDateTime, sameVersion } from "@/lib/inventory-review";
 import "@/app/chemstock.css";
 
-type Draft = { roomId: string; solventId: string; amount: string; unit: string; type: "add" | "use"; operator: string; purpose: string; occurredAt: string };
+type Draft = { roomId: string; solventId: string; amount: string; unit: string; type: "add" | "use"; operator: string; purpose: string };
 type EditLogChange = { expectedLogUpdated: string; change: number; operator: string; occurredAt: string; changedByName: string; reason: string };
-const emptyDraft: Draft = { roomId: "", solventId: "", amount: "", unit: "L", type: "add", operator: "", purpose: "", occurredAt: "" };
-const DRAFT_KEY = "chemstock-adjust-draft";
+const emptyDraft: Draft = { roomId: "", solventId: "", amount: "", unit: "L", type: "use", operator: "", purpose: "" };
+// Start a fresh draft after removing date overrides and changing the initial operation.
+const DRAFT_KEY = "chemstock-adjust-draft-v2";
 const adminRoles: Role[] = ["solvent_room_admin", "global_admin"];
 
 function demoLogAudit(data: DataSet, beforeLog: StockLog, afterLog: StockLog, beforeAmount: number, afterAmount: number, action: "cancel" | "correct", operatorName: string, reason: string): DemoAudit {
@@ -171,12 +172,10 @@ export function ChemstockApp() {
 
   const submitAdjustment = async () => {
     if (!draft.roomId || draft.roomId !== selectedRoomId || !draft.solventId || positiveAmount === null || !draft.operator.trim()) { setMessage("研究室・溶媒・正の数量・実操作者名を確認してください。"); return; }
-    const occurred = draft.occurredAt ? new Date(draft.occurredAt) : null;
-    if (occurred && (!Number.isFinite(occurred.getTime()) || occurred.getTime() > Date.now() || occurred.getTime() < new Date(currentStock?.opened_at || 0).getTime())) { setMessage("入出庫日時は在庫の開始時刻から現在までで入力してください。"); return; }
     if (draft.type === "use" && (!currentStock || currentStock.amount + signedAmount < 0)) { setMessage("在庫が不足しています。"); return; }
     if (!preview) {
       if (!currentStock || !currentStock.is_active) { setMessage("対象の在庫が見つかりません。画面を読み込み直してください。"); return; }
-      await executeLive("movement", currentStock.id, { changeAmount: signedAmount, operatorName: draft.operator.trim(), purpose: draft.purpose.trim() || null, occurredAt: occurred?.toISOString() || null }, () => { setDraft((current) => ({ ...current, operator: "", purpose: "", occurredAt: "" })); go("/inventory/complete"); }, "保存に失敗しました。");
+      await executeLive("movement", currentStock.id, { changeAmount: signedAmount, operatorName: draft.operator.trim(), purpose: draft.purpose.trim() || null, occurredAt: null }, () => { setDraft((current) => ({ ...current, operator: "", purpose: "" })); go("/inventory/complete"); }, "保存に失敗しました。");
       return;
     }
     mutateDemo((current) => {
@@ -184,10 +183,10 @@ export function ChemstockApp() {
       const id = existing?.id || crypto.randomUUID();
       return { ...current,
         stocks: existing ? current.stocks.map((stock) => stock.id === id ? { ...stock, amount: Number((stock.amount + signedAmount).toFixed(2)), last_updated: new Date().toISOString() } : stock) : [...current.stocks, { id, room_id: draft.roomId, solvent_id: draft.solventId, amount: signedAmount, opening_amount: 0, opened_at: new Date().toISOString(), last_updated: new Date().toISOString(), low_stock_threshold: null, is_active: true }],
-        logs: [{ id: crypto.randomUUID(), inventory_id: id, change_amount: signedAmount, operator_name: draft.operator.trim(), purpose: draft.purpose || null, status: "active", created_at: new Date().toISOString(), updated_at: new Date().toISOString(), occurred_at: occurred?.toISOString() || new Date().toISOString() }, ...current.logs],
+        logs: [{ id: crypto.randomUUID(), inventory_id: id, change_amount: signedAmount, operator_name: draft.operator.trim(), purpose: draft.purpose || null, status: "active", created_at: new Date().toISOString(), updated_at: new Date().toISOString(), occurred_at: new Date().toISOString() }, ...current.logs],
       };
     });
-    setDraft((current) => ({ ...current, operator: "", purpose: "", occurredAt: "" }));
+    setDraft((current) => ({ ...current, operator: "", purpose: "" }));
     go("/inventory/complete");
   };
 
@@ -259,20 +258,19 @@ export function ChemstockApp() {
   } else if (path === "/inventory/adjust") {
     content = <>{header("残量調整", undefined, <Link className="cs-header-link" href={href("/inventory/history")}>履歴</Link>)}{roomPicker()}
       <div className="cs-field">溶媒を選択</div><div className="cs-option-list">{selectableSolvents.length ? selectableSolvents.map((solvent) => <button type="button" className={`cs-option ${draft.solventId === solvent.id ? "selected" : ""}`} aria-pressed={draft.solventId === solvent.id} key={solvent.id} onClick={() => updateDraft({ solventId: solvent.id, roomId: selectedRoomId })}><span className="cs-radio" />{solvent.name}</button>) : <p className="cs-muted">溶媒が登録されていません。</p>}</div>
-      <div className="cs-actions">{button("数量入力へ", () => draft.solventId && selectedRoomId ? go("/inventory/action/add") : setMessage("研究室と溶媒を選択してください。"), false, !selectableSolvents.length)}</div>
+      <div className="cs-actions">{button("数量入力へ", () => { if (!draft.solventId || !selectedRoomId) { setMessage("研究室と溶媒を選択してください。"); return; } updateDraft({ type: "use" }); go("/inventory/action/add"); }, false, !selectableSolvents.length)}</div>
     </>;
   } else if (path.startsWith("/inventory/action/")) {
     const confirm = path.endsWith("/confirm");
     const name = data.solvents.find((solvent) => solvent.id === draft.solventId)?.name;
     content = <>{header(confirm ? "確認" : "数量入力", confirm ? "/inventory/action/add" : "/inventory/adjust")}{card(<><small>対象</small><strong>{room?.name || "研究室未選択"} ／ {name || "溶媒未選択"}</strong>{!confirm && currentStock && <small>現在量：{formatAmount(currentStock.amount)}</small>}</>)}
-      {!confirm ? <><div className="cs-field">区分<div className="cs-segment"><button type="button" aria-pressed={draft.type === "add"} className={draft.type === "add" ? "active" : ""} onClick={() => updateDraft({ type: "add" })}>追加する</button><button type="button" aria-pressed={draft.type === "use"} className={draft.type === "use" ? "active" : ""} onClick={() => updateDraft({ type: "use" })}>使用する</button></div></div>
+      {!confirm ? <><div className="cs-field">区分<div className="cs-segment"><button type="button" aria-pressed={draft.type === "use"} className={draft.type === "use" ? "active" : ""} onClick={() => updateDraft({ type: "use" })}>使用する</button><button type="button" aria-pressed={draft.type === "add"} className={draft.type === "add" ? "active" : ""} onClick={() => updateDraft({ type: "add" })}>追加する</button></div></div>
         <div className="cs-field">数量<div className="cs-stepper"><button type="button" aria-label="数量を1減らす" onClick={() => updateDraft({ amount: String(Math.max(0, Number(draft.amount || 0) - 1)) })}>−</button><input aria-label="数量" type="number" min="0" step="0.01" value={draft.amount} onChange={(event) => updateDraft({ amount: event.target.value })} /><button type="button" aria-label="数量を1増やす" onClick={() => updateDraft({ amount: String(Number(draft.amount || 0) + 1) })}>＋</button><select aria-label="単位" value={draft.unit} onChange={(event) => updateDraft({ unit: event.target.value })}><option>L</option><option value="gal">gal</option><option>斗缶</option></select></div><div className="cs-quick-steps"><button type="button" onClick={() => stepByLitres(-data.settings.unitGalToL)}>−1 gal</button><button type="button" onClick={() => stepByLitres(data.settings.unitGalToL)}>＋1 gal</button><button type="button" onClick={() => stepByLitres(-data.settings.unitTokanToL)}>−1 斗缶</button><button type="button" onClick={() => stepByLitres(data.settings.unitTokanToL)}>＋1 斗缶</button></div><small>1 gal = {data.settings.unitGalToL} L、1 斗缶 = {data.settings.unitTokanToL} L。保存単位は L。</small></div>
         {positiveAmount !== null && card(<div className="cs-record-inline"><span>L換算の変量</span><strong>{signedAmount > 0 ? "+" : ""}{formatAmount(signedAmount)}</strong></div>)}
         <label className="cs-field">実操作者名 <em>必須</em><input value={draft.operator} onChange={(event) => updateDraft({ operator: event.target.value })} placeholder="氏名を入力" maxLength={100} /></label>
         <label className="cs-field">用途・メモ<input value={draft.purpose} onChange={(event) => updateDraft({ purpose: event.target.value })} placeholder="任意" maxLength={500} /></label>
-        <details className="cs-card"><summary>実際の入出庫日時を指定（後日登録）</summary><label className="cs-field">入出庫日時<input type="datetime-local" value={draft.occurredAt} onChange={(event) => updateDraft({ occurredAt: event.target.value })} /></label></details>
         <div className="cs-actions">{button("確認へ", () => { if (!selectedRoomId || !draft.solventId || positiveAmount === null || !draft.operator.trim()) { setMessage("研究室・溶媒・正の数量・実操作者名を入力してください。"); return; } if (draft.type === "use" && (!currentStock || currentStock.amount < positiveAmount)) { setMessage("在庫が不足しています。"); return; } go("/inventory/action/add/confirm"); })}</div>
-      </> : <>{card(<div className="cs-summary"><span>研究室</span><strong>{room?.name}</strong><span>溶媒</span><strong>{name}</strong><span>区分</span><strong>{draft.type === "add" ? "追加" : "使用"}</strong><span>現在量</span><strong>{currentStock ? formatAmount(currentStock.amount) : "—"}</strong><span>変量</span><strong>{signedAmount > 0 ? "+" : ""}{formatAmount(signedAmount)}</strong><span>更新後</span><strong>{currentStock ? formatAmount(currentStock.amount + signedAmount) : "—"}</strong><span>実操作者</span><strong>{draft.operator}</strong>{draft.purpose && <><span>用途・メモ</span><strong>{draft.purpose}</strong></>}{draft.occurredAt && <><span>入出庫日時</span><strong>{new Date(draft.occurredAt).toLocaleString("ja-JP")}</strong></>}</div>)}<p className="cs-muted">この内容で在庫を更新します。</p><div className="cs-actions cs-pair">{button("修正する", () => go("/inventory/action/add"), true)}{button("実行する", submitAdjustment, false, saving)}</div></>}
+      </> : <>{card(<div className="cs-summary"><span>研究室</span><strong>{room?.name}</strong><span>溶媒</span><strong>{name}</strong><span>区分</span><strong>{draft.type === "add" ? "追加" : "使用"}</strong><span>現在量</span><strong>{currentStock ? formatAmount(currentStock.amount) : "—"}</strong><span>変量</span><strong>{signedAmount > 0 ? "+" : ""}{formatAmount(signedAmount)}</strong><span>更新後</span><strong>{currentStock ? formatAmount(currentStock.amount + signedAmount) : "—"}</strong><span>実操作者</span><strong>{draft.operator}</strong>{draft.purpose && <><span>用途・メモ</span><strong>{draft.purpose}</strong></>}</div>)}<p className="cs-muted">この内容で在庫を更新します。</p><div className="cs-actions cs-pair">{button("修正する", () => go("/inventory/action/add"), true)}{button("実行する", submitAdjustment, false, saving)}</div></>}
     </>;
   } else if (path === "/inventory/complete" || path === "/inventory/history/recalculated") {
     content = <>{header(path === "/inventory/complete" ? "完了" : "反映しました")}<div className="cs-done"><span><Check size={46} /></span><h2>{path === "/inventory/complete" ? "登録しました" : "取消・編集を反映しました"}</h2>{card(<>{path === "/inventory/complete" ? <>{room?.name} ／ {data.solvents.find((s) => s.id === draft.solventId)?.name}<br /><strong>{signedAmount > 0 ? "+" : ""}{formatAmount(signedAmount)}</strong></> : preview ? "画面確認用データに反映しました" : "変更を保存しました"}</>)}<div className="cs-actions">{button("ホームに戻る", () => go("/protected"))}{button(path === "/inventory/complete" ? "続けて操作する" : "履歴に戻る", () => go(path === "/inventory/complete" ? "/inventory/adjust" : "/inventory/history"), true)}</div></div></>;
