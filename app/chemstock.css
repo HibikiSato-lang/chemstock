@@ -24,6 +24,7 @@
 .cs-dq span{font-size:13px;font-weight:700}.cs-dq small{margin-top:8px}
 .cs-dq-warning strong,.cs-dq-warning span{color:#a06116}
 .cs-dq-exceeded strong,.cs-dq-exceeded span{color:#b24032}
+.cs-dq-breakdown{padding:8px 12px;margin-top:9px}.cs-dq-breakdown table{width:100%;table-layout:fixed;font-size:12px;font-variant-numeric:tabular-nums}.cs-dq-breakdown th,.cs-dq-breakdown td{padding:11px 3px;border-bottom:1px solid #e6eee9;text-align:right;vertical-align:middle;overflow-wrap:anywhere}.cs-dq-breakdown th:first-child{width:30%;text-align:left}.cs-dq-breakdown th:last-child{width:17%}.cs-dq-breakdown thead th{color:#68786f;font-size:11px;font-weight:400}.cs-dq-breakdown tbody th{font-weight:700}.cs-dq-breakdown tbody tr:last-child>*{border-bottom:0}.cs-dq-help p,.cs-dq-unconfigured p{font-size:12px;line-height:1.7;margin-top:12px}
 .cs-chart-legend{font-size:11px;color:#566c5f;margin:4px 0 0}
 .cs-forecast-status{font-size:14px;font-weight:700;margin:14px 0 0;color:#2e6b58}
 .cs-modal{max-height:calc(100dvh - 40px);overflow-y:auto}

@@ -49,6 +49,27 @@ export const formatAmount = (amount: number) => `${Number(amount.toFixed(2)).toL
 export const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
 export const toLitres = (amount: number, unit: string, settings: AppSettings) => amount * (unit === "gal" ? settings.unitGalToL : unit === "斗缶" ? settings.unitTokanToL : 1);
 
+export function previewDesignatedQuantity(data: Pick<DataSet, "solvents" | "stocks">): Pick<AdminOverview, "totalRatio" | "breakdown" | "unconfiguredSolvents"> {
+  const amounts = new Map<string, number>();
+  for (const stock of data.stocks) {
+    if (stock.is_active && stock.amount > 0) {
+      amounts.set(stock.solvent_id, (amounts.get(stock.solvent_id) ?? 0) + stock.amount);
+    }
+  }
+  const breakdown: AdminOverview["breakdown"] = [];
+  const unconfiguredSolvents: AdminOverview["unconfiguredSolvents"] = [];
+  for (const solvent of data.solvents) {
+    const amount = amounts.get(solvent.id);
+    if (amount == null) continue;
+    if (solvent.designated_quantity == null) {
+      unconfiguredSolvents.push({ solventId: solvent.id, solventName: solvent.name, amount });
+    } else {
+      breakdown.push({ solventId: solvent.id, solventName: solvent.name, amount, baseUnit: "L", designatedQuantity: solvent.designated_quantity, ratio: amount / solvent.designated_quantity });
+    }
+  }
+  return { totalRatio: breakdown.reduce((total, item) => total + item.ratio, 0), breakdown, unconfiguredSolvents };
+}
+
 export function movementAmount(value: string, unit: string, settings: AppSettings): number | null {
   if (!/^(?:\d+)(?:\.\d{1,4})?$/.test(value)) return null;
   const amount = Number(value);

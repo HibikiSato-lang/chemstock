@@ -7,7 +7,7 @@ import { AlertTriangle, ArrowLeft, BarChart3, Beaker, Bell, Check, ChevronRight,
 import { signOutAction } from "@/app/actions";
 import { useChemstock } from "@/components/chemstock-provider";
 import { StockTrend } from "@/components/stock-trend";
-import { DataSet, DemoAudit, Forecast, formatAmount, formatDate, movementAmount, previewForecast, Role, Stock, StockLog, toLitres } from "@/lib/chemstock-ui";
+import { DataSet, DemoAudit, Forecast, formatAmount, formatDate, movementAmount, previewDesignatedQuantity, previewForecast, Role, Stock, StockLog, toLitres } from "@/lib/chemstock-ui";
 import "@/app/chemstock.css";
 
 type Draft = { roomId: string; solventId: string; amount: string; unit: string; type: "add" | "use"; operator: string; purpose: string; occurredAt: string };
@@ -538,18 +538,38 @@ function ExtraScreens(props: ExtraProps) {
     return <>{header("各種設定", "/manage/admin")}{card(<><h2>表示・予測設定</h2><div className="cs-record-inline"><span>早期警告倍率</span><strong>{warning} 倍</strong></div><div className="cs-record-inline"><span>予測参照期間</span><strong>{data.settings.forecastWindowDays} 日</strong></div><div className="cs-record-inline"><span>ガロン換算</span><strong>{data.settings.unitGalToL} L</strong></div><div className="cs-record-inline"><span>斗缶換算</span><strong>{data.settings.unitTokanToL} L</strong></div></>)}{data.account.role === "global_admin" && <div className="cs-actions">{button("早期警告倍率を変更", () => { setSettingEdit("warning_ratio"); setSettingValue(String(warning)); setSettingOperator(""); setSettingReason(""); setSettingError(""); })}{button("予測参照期間を変更", () => { setSettingEdit("forecast_window_days"); setSettingValue(String(data.settings.forecastWindowDays)); setSettingOperator(""); setSettingReason(""); setSettingError(""); }, true)}</div>}{linkRow("指定数量モニター", "/manage/admin/designated-quantity", <AlertTriangle size={20} />)}<p className="cs-muted">早期警告倍率はアプリ独自の表示基準です。</p>{settingEdit && <div className="cs-overlay"><div ref={extraModalRef} className="cs-modal" role="dialog" aria-modal="true" aria-label="設定の変更"><h2>{settingEdit === "warning_ratio" ? "早期警告倍率" : "予測参照期間"}を変更</h2><label className="cs-field">新しい値 {settingEdit === "warning_ratio" ? "（0より大きく1未満）" : "（1〜365日）"}<input type="number" step={settingEdit === "warning_ratio" ? "0.01" : "1"} value={settingValue} onChange={(event) => setSettingValue(event.target.value)} /></label><label className="cs-field">実操作者名 <em>必須</em><input value={settingOperator} onChange={(event) => setSettingOperator(event.target.value)} maxLength={100} /></label><label className="cs-field">変更理由 <em>必須</em><input value={settingReason} onChange={(event) => setSettingReason(event.target.value)} maxLength={200} /></label>{settingError && <p className="cs-message" role="alert">{settingError}</p>}<div className="cs-pair">{button("キャンセル", () => setSettingEdit(""), true, settingSaving)}{button("保存", () => { void saveSetting(); }, false, settingSaving)}</div></div></div>}</>;
   }
   if (path === "/manage/admin/designated-quantity") {
-    const ratio = preview ? data.notices[0]?.ratio ?? 0 : data.adminOverview?.totalRatio;
+    const overview = preview ? previewDesignatedQuantity(data) : data.adminOverview;
+    const ratio = overview?.totalRatio;
     const warning = data.adminManagement?.warningRatio ?? data.adminOverview?.warningRatio ?? 0.8;
+    const breakdown = [
+      ...(overview?.breakdown ?? []),
+      ...data.solvents.filter((solvent) => solvent.designated_quantity != null && !overview?.breakdown.some((item) => item.solventId === solvent.id))
+        .map((solvent) => ({ solventId: solvent.id, solventName: solvent.name, amount: 0, designatedQuantity: solvent.designated_quantity!, ratio: 0 })),
+    ].sort((a, b) => b.ratio - a.ratio || a.solventName.localeCompare(b.solventName, "ja"));
     return <>{header("指定数量モニター", "/manage/admin")}{ratio == null ? card("倍率を取得できませんでした。") : <>
       {card(<div className={`cs-dq ${ratio >= 1 ? "cs-dq-exceeded" : ratio >= warning ? "cs-dq-warning" : ""}`}><small>溶媒庫 合算倍率</small><strong>{Number(ratio).toFixed(3)} 倍</strong><span>{ratio >= 1 ? "⚠ 基準超過" : ratio >= warning ? "⚠ 接近" : "基準内"}</span><small>接近の表示基準：{warning}倍（ChemStock独自の早期警告）</small></div>)}
       {linkRow(`未確認の通知 ${unreadCount}件`, "/manage/admin/notifications", <Bell size={20} />)}
-      {preview ? <p className="cs-muted">画面確認用の表示例です。</p> : <>
-        <h3 className="cs-section-title">溶媒別の内訳</h3>
-        {data.adminOverview?.breakdown.length ? data.adminOverview.breakdown.map((item) =>
-          <div className="cs-card cs-record-inline" key={item.solventId}><span>{item.solventName}　{formatAmount(Number(item.amount))}</span><strong>{Number(item.ratio).toFixed(2)} 倍</strong></div>
-        ) : card("指定数量を集計できる在庫はありません。")}
-        {!!data.adminOverview?.unconfiguredSolvents.length && card(<><strong>指定数量が未設定の溶媒</strong>{data.adminOverview.unconfiguredSolvents.map((item) => <p key={item.solventId}>{item.solventName}：{formatAmount(Number(item.amount))}</p>)}</>)}
-      </>}
+      {preview && <p className="cs-muted">画面確認用データの現在量から集計しています。</p>}
+      <h3 className="cs-section-title">溶媒別の内訳</h3>
+      <p className="cs-muted">現在量は溶媒庫内の全研究室の利用中在庫を合算しています。倍数＝現在量 ÷ 指定数量。</p>
+      {breakdown.length ? <div className="cs-card cs-dq-breakdown"><table>
+        <caption className="sr-only">溶媒ごとの現在量、指定数量、倍数（倍数の大きい順）</caption>
+        <thead><tr><th scope="col">溶媒</th><th scope="col">現在量</th><th scope="col">指定数量</th><th scope="col">倍数</th></tr></thead>
+        <tbody>{breakdown.map((item) => <tr key={item.solventId}>
+          <th scope="row">{item.solventName}</th><td>{formatAmount(Number(item.amount))}</td><td>{formatAmount(Number(item.designatedQuantity))}</td><td>{Number(item.ratio).toFixed(3)}</td>
+        </tr>)}</tbody>
+      </table></div> : card("指定数量が設定された溶媒はありません。")}
+      {!!overview?.unconfiguredSolvents.length && <details className="cs-card cs-dq-unconfigured">
+        <summary>指定数量が未設定の溶媒（{overview.unconfiguredSolvents.length}件）</summary>
+        <p className="cs-muted">以下の在庫は合算倍率に含まれていません。溶媒マスタの設定を確認してください。</p>
+        {overview.unconfiguredSolvents.map((item) => <p key={item.solventId}>{item.solventName}：{formatAmount(Number(item.amount))}</p>)}
+      </details>}
+      <details className="cs-card cs-dq-help"><summary>指定数量と合算倍率について</summary>
+        <p>指定数量は危険物の分類・性状に応じて決まります。製品のSDSと法令を確認した値を溶媒マスタに登録してください。</p>
+        <p>同じ場所で複数の危険物を保管する場合は、溶媒ごとの倍数を合算して判定します。</p>
+        <p><a className="cs-inline-link" href="https://laws.e-gov.go.jp/law/334CO0000000306" target="_blank" rel="noreferrer">危険物の規制に関する政令 別表第三</a></p>
+        <p><Link className="cs-inline-link" href={ctx.href("/manage/admin/master")}>溶媒マスタの指定数量を確認</Link></p>
+      </details>
     </>}</>;
   }
   return <>{header("画面が見つかりません", "/protected")}{card("指定された画面はありません。")}</>;
