@@ -1,6 +1,9 @@
-export const STOCK_RISK_POLICY = Object.freeze({ horizonDays: 7, referenceDays: 180, minHistoryDays: 90, minOutboundDays: 10, minNonOverlappingWindows: 12, attentionRate: 0.2 });
-export const STOCK_RISK_METHOD = "empirical_outbound_window_v1";
+export const STOCK_RISK_POLICY = Object.freeze({ horizonDays: 7, referenceDays: 365, minHistoryDays: 2, minOutboundDays: 2, alpha: 0.1 });
+export const STOCK_RISK_METHOD = "sba_daily_outbound_v1";
 const DAY = 86_400_000;
+const JST = 9 * 3_600_000;
+const dayStart = (time: number) => Math.floor((time + JST) / DAY) * DAY - JST;
+const round6 = (value: number) => Math.round(value * 1e6) / 1e6;
 
 export type RiskStock = { id: string; amount: number; opening_amount: number; opened_at: string; low_stock_threshold: number | null; is_active: boolean };
 export type RiskLog = { id: string; inventory_id: string; change_amount: number; status: "active" | "cancelled"; occurred_at: string; created_at?: string; updated_at?: string };
@@ -9,9 +12,9 @@ export type StockRiskStatus = "inactive" | "threshold_not_set" | "already_below_
 export type StockRisk = {
   inventoryId: string; status: StockRiskStatus; currentAmount: number; lowStockThreshold: number | null; marginAmount: number | null; baseUnit: "L";
   horizonDays: number; referenceDays: number | null; historyStartAt: string | null; historyEndAt: string;
-  candidateWindowCount: number | null; sampleWindowCount: number | null; excludedWindowCount: number | null; reachedWindowCount: number | null;
-  historicalReachRate: number | null; outboundDayCount: number | null; nonOverlappingWindowCount: number | null;
-  windowOutbound: { median: number; p95: number; max: number } | null; needsAttention: boolean | null;
+  outboundDayCount: number | null; dailyOutboundForecast: number | null; forecastOutboundAmount: number | null;
+  forecastMarginAmount: number | null; smoothedOutboundSize: number | null; smoothedIntervalDays: number | null;
+  lastOutboundAt: string | null; smoothingAlpha: number; needsAttention: boolean | null;
   reasonCodes: string[]; exclusionReasonCodes: string[]; assumptions: string[]; generatedAt: string; methodVersion: string;
 };
 
@@ -31,9 +34,9 @@ export function calculateStockRisk(stock: RiskStock, logs: RiskLog[], review: Ri
   const result: StockRisk = {
     inventoryId: stock.id, status: "data_quality_issue", currentAmount: stock.amount, lowStockThreshold: stock.low_stock_threshold,
     marginAmount: margin == null ? null : margin / 100, baseUnit: "L", horizonDays: STOCK_RISK_POLICY.horizonDays,
-    referenceDays: null, historyStartAt: null, historyEndAt: asOf.toISOString(), candidateWindowCount: null,
-    sampleWindowCount: null, excludedWindowCount: null, reachedWindowCount: null, historicalReachRate: null,
-    outboundDayCount: null, nonOverlappingWindowCount: null, windowOutbound: null, needsAttention: null,
+    referenceDays: null, historyStartAt: null, historyEndAt: new Date(dayStart(t)).toISOString(),
+    outboundDayCount: null, dailyOutboundForecast: null, forecastOutboundAmount: null, forecastMarginAmount: null,
+    smoothedOutboundSize: null, smoothedIntervalDays: null, lastOutboundAt: null, smoothingAlpha: STOCK_RISK_POLICY.alpha, needsAttention: null,
     reasonCodes: [], exclusionReasonCodes: [], assumptions: ["no_inbound", "similar_outbound_pattern"],
     generatedAt: asOf.toISOString(), methodVersion: STOCK_RISK_METHOD,
   };
@@ -70,54 +73,54 @@ export function calculateStockRisk(stock: RiskStock, logs: RiskLog[], review: Ri
   }
   if (balance !== amount) return state("data_quality_issue", "ledger_mismatch");
   if (balance === 0 && t > cursor) zeroPeriods.push([cursor, t]);
-  const W = Math.min(STOCK_RISK_POLICY.referenceDays, Math.floor((t - Math.max(opened, from, resumed)) / DAY));
-  const H = STOCK_RISK_POLICY.horizonDays;
+  // Use complete Japanese calendar days. An incomplete first/current day is not
+  // a zero-demand observation. Restart after stockouts rather than compress time.
+  const end = dayStart(t);
+  const zeroEnd = Math.max(0, ...zeroPeriods.filter(([a, b]) => a < end && b > end - STOCK_RISK_POLICY.referenceDays * DAY).map(([, b]) => b));
+  const rawStart = Math.max(opened, from, resumed, zeroEnd, end - STOCK_RISK_POLICY.referenceDays * DAY);
+  const start = Math.min(end, dayStart(rawStart) + (rawStart === dayStart(rawStart) ? 0 : DAY));
+  const W = Math.round((end - start) / DAY);
   result.referenceDays = W;
-  result.historyStartAt = new Date(t - W * DAY).toISOString();
-  result.candidateWindowCount = Math.max(0, W - H + 1);
-  const valid = (start: number, end: number) => !zeroPeriods.some(([a, b]) => a < end && b > start);
+  result.historyStartAt = new Date(start).toISOString();
+  result.exclusionReasonCodes = zeroEnd ? ["stockout_restart"] : [];
   const outbound = active.filter((log) => log.quantity! < 0);
-  const samples: number[] = [];
-  let nonOverlapping = 0;
-  for (let k = 0; k <= W - H; k++) {
-    const end = t - k * DAY, start = end - H * DAY;
-    if (!valid(start, end)) continue;
-    samples.push(outbound.filter((log) => log.time > start && log.time <= end).reduce((sum, log) => sum - log.quantity!, 0));
-    if (k % H === 0) nonOverlapping++;
-  }
-  result.sampleWindowCount = samples.length;
-  result.excludedWindowCount = result.candidateWindowCount - samples.length;
-  result.exclusionReasonCodes = result.excludedWindowCount ? ["stockout_period"] : [];
-  result.nonOverlappingWindowCount = nonOverlapping;
+  let z = 0, p = 0, lastDay = -1;
   result.outboundDayCount = 0;
   for (let k = 0; k < W; k++) {
-    const end = t - k * DAY, start = end - DAY;
-    if (valid(start, end) && outbound.some((log) => log.time > start && log.time <= end)) result.outboundDayCount++;
+    const day = start + k * DAY;
+    const events = outbound.filter((log) => log.time >= day && log.time < day + DAY);
+    const used = events.reduce((sum, log) => sum - log.quantity!, 0) / 100;
+    if (!used) continue;
+    result.outboundDayCount++;
+    result.lastOutboundAt = new Date(events[events.length - 1].time).toISOString();
+    if (lastDay < 0) z = used;
+    else {
+      z += STOCK_RISK_POLICY.alpha * (used - z);
+      const interval = k - lastDay;
+      p = p === 0 ? interval : p + STOCK_RISK_POLICY.alpha * (interval - p);
+    }
+    lastDay = k;
   }
   if (W < STOCK_RISK_POLICY.minHistoryDays) return state("insufficient_history", "history_too_short");
-  if (!outbound.some((log) => log.time > t - W * DAY && log.time <= t)) return state("no_outbound_history");
-  const reasons = [];
-  if (result.outboundDayCount < STOCK_RISK_POLICY.minOutboundDays) reasons.push("too_few_outbound_days");
-  if (nonOverlapping < STOCK_RISK_POLICY.minNonOverlappingWindows) reasons.push("too_few_non_overlapping_windows");
-  if (!samples.length) reasons.push("no_usable_windows");
-  if (reasons.length) return state("sparse_history", ...reasons);
-  const reached = samples.filter((value) => value >= margin!).length;
-  const sorted = samples.sort((a, b) => a - b);
+  if (!result.outboundDayCount) return state("no_outbound_history");
+  if (result.outboundDayCount < STOCK_RISK_POLICY.minOutboundDays) return state("sparse_history", "too_few_outbound_days");
+  // Croston size/interval smoothing with the Syntetos–Boylan bias correction.
+  // Initialization from the first size and first complete interval is our policy;
+  // leading zeros before the first occurrence are left-censored, not an interval.
+  const rate = (1 - STOCK_RISK_POLICY.alpha / 2) * z / p;
+  const forecast = round6(rate * STOCK_RISK_POLICY.horizonDays);
   return {
-    ...result, status: "ready", reachedWindowCount: reached, historicalReachRate: Math.round(reached / samples.length * 1e6) / 1e6,
-    windowOutbound: { median: sorted[Math.ceil(sorted.length * 0.5) - 1] / 100, p95: sorted[Math.ceil(sorted.length * 0.95) - 1] / 100, max: sorted[sorted.length - 1] / 100 },
-    needsAttention: reached * 5 >= samples.length,
+    ...result, status: "ready", dailyOutboundForecast: round6(rate), forecastOutboundAmount: forecast,
+    forecastMarginAmount: round6(margin! / 100 - forecast), smoothedOutboundSize: round6(z), smoothedIntervalDays: round6(p),
+    needsAttention: forecast >= margin! / 100,
   };
 }
 
 export function stockRiskText(risk: StockRisk): string {
-  const amount = `${risk.marginAmount?.toLocaleString("ja-JP", { maximumFractionDigits: 2 })} L`;
   if (risk.status === "ready") {
-    const k = risk.reachedWindowCount!, n = risk.sampleWindowCount!;
-    if (k === 0) return `参照した${risk.horizonDays}日間の区間には、${amount}以上の出庫はありません。`;
-    if (k === n) return `参照したすべての${risk.horizonDays}日間の区間で、${amount}以上を出庫しています。`;
-    const percent = k / n < 0.01 ? "1%未満" : `約${Math.round(k / n * 100)}%`;
-    return `過去${risk.referenceDays}日の履歴で、${risk.horizonDays}日分の出庫が余裕量${amount}以上だった割合：${percent}。`;
+    const amount = risk.forecastOutboundAmount!;
+    const shown = amount > 0 && amount < 0.01 ? "0.01 L未満" : `${amount.toLocaleString("ja-JP", { maximumFractionDigits: 2 })} L`;
+    return `今後${risk.horizonDays}日間の予測出庫量：約${shown}。`;
   }
   if (risk.status === "inactive") return "利用停止中です。";
   if (risk.status === "threshold_not_set") return "下限値が未設定です。";

@@ -11,13 +11,13 @@
 - `migrations/20261003000000_release_queries.sql`：換算・予測設定の限定Queryと、研究室権限に従う欠品予測Query。
 - `migrations/20261003010000_release_management.sql`：管理対象の追加・再開、管理者向けマスタ・設定Query、全体管理者の監査付きCommand。
 
-実Supabase環境への適用とAuth・Data APIを通した動作確認は未実施です。基本機能は上記8件を前提とし、この試行ブランチの下限到達リスクには後述する9・10件目を追加します。
+実Supabase環境への適用とAuth・Data APIを通した動作確認は未実施です。基本機能は上記8件を前提とし、この試行ブランチの下限到達リスクには後述する9〜11件目を追加します。
 
 `setup.sql` は旧デモ用のスキーマと仮データです。溶媒庫そのものの行や実験室の在庫を含むため、新しい開発DBや本番DBへ実行しません。既存のDBにマイグレーションを適用する場合は、先にスキーマとデータを調べて移行手順を別途作ります。
 
 ## ローカルでの検証
 
-試行ブランチでは既存8件の後に`migrations/20261005000000_stock_risk.sql`、続けて`migrations/20261008000000_review_concurrency.sql`を適用します。10件目は履歴の訂正・取消と履歴品質確認の競合制御を追加します。修正後の画面は10件目まで適用したDBが必要です。新しい業務テーブルは追加せず、既存の設定・監査・コマンド受領記録を使います。
+試行ブランチでは既存8件の後に`migrations/20261005000000_stock_risk.sql`、続けて`migrations/20261008000000_review_concurrency.sql`を適用します。10件目は履歴の訂正・取消と履歴品質確認の競合制御を追加します。続けて11件目の`migrations/20261012000000_sba_outbound_forecast.sql`を適用し、計算方式をSBA法へ置換します。現行の画面は11件目まで適用したDBが必要です。新しい業務テーブルは追加せず、既存の設定・監査・コマンド受領記録を使います。
 
 ### 下限到達リスクの試行
 
@@ -27,8 +27,8 @@
 - `public.stock_risk_command(p_operation text, p_inventory_id uuid, p_payload jsonb, p_idempotency_key uuid)`は全体管理者限定です。`enable`は在庫IDをnull、payloadに`enabled / operatorName / reason`を渡します。`quality`は在庫IDと`eligible / verifiedFrom / expectedLastUpdated / expectedReviewAuditId / operatorName / reason`を渡します。`eligible=false`では開始日時は不要です。期待更新日時は確認フォームを開いた時点の在庫の`last_updated`です。`expectedReviewAuditId`はその時点の最新の確認監査ID（未確認はJSON null、キーは必須）です。在庫と確認状態の双方をロック後に照合し、不一致は`VERSION_CONFLICT`にします。
 - `public.stock_risk_reviews()`は全体管理者限定です。表示の有効・無効にかかわらず、在庫ごとの最新監査ID・確認状態・開始日時・確認日時・操作者・理由と、同一スナップショットの`inventoryLastUpdated`を返します。画面の在庫と版が異なる場合は保存を止めて再取得します。
 - `inventory_command`の`correct / cancel`には編集・取消画面を開いた時点の`inventory_logs.updated_at`を`expectedLogUpdated`として必須で送ります。ロックした履歴の版と比較し、不一致は`VERSION_CONFLICT`、省略は`INVALID_LOG_VERSION`です。日時を編集しなかった訂正は元の`occurred_at`をそのまま送ります。
-- 確認・対象解除・有効化は監査付きで再送に対応します。過去の履歴の訂正・取消・遡及登録後は再確認まで割合を返しません。現在量・下限を自動変更せず、下限到達リスクでメールや通知レコードは生成しません。
-- 計算条件は方式v1の暫定値です。実Supabaseへの適用と実データでの評価は未実施です。[設計](../docs/下限到達リスク_設計案.md)を参照してください。
+- 確認・対象解除・有効化は監査付きで再送に対応します。過去の履歴の訂正・取消・遡及登録後は再確認まで予測量を返しません。現在量・下限を自動変更せず、下限到達リスクでメールや通知レコードは生成しません。
+- 方式版は`sba_daily_outbound_v1`です。予測出庫量・予測後の余裕を返し、旧方式の実績割合は返しません。計算条件は試行値です。実Supabaseへの適用と実データでの評価は未実施です。[設計](../docs/出庫量予測_SBA設計.md)を参照してください。
 
 PostgreSQLの`initdb`・`pg_ctl`・`psql`が使える環境で、リポジトリ直下から実行します。
 

@@ -15,6 +15,16 @@ export function fixtures(clock = "2026-10-05T03:00:00.000Z") {
   const daily = Array.from({ length: 180 }, (_, i) => log(2000 + i, i + 0.5, -0.1));
   return [
     make("weekly"),
+    make("monthly", { ...stock, opening_amount: 21 }, [151, 121, 91, 61, 31, 1].map((age, i) => log(5000 + i, age, -2.5))),
+    make("irregular", { ...stock, opening_amount: 18 }, [log(5100, 100, -2), log(5101, 90, -4), log(5102, 87, -6)]),
+    make("same-day", { ...stock, opening_amount: 11 }, [log(5200, 1, -2.5), log(5201, 1.1, -2.5)]),
+    make("today-only", { ...stock, opening_amount: 11 }, [log(5300, 0.1, -2.5), log(5301, 0.2, -2.5)]),
+    make("forecast-equality", { ...dailyStock, opening_amount: 380, low_stock_threshold: 6.7 }, daily.map(x => ({ ...x, change_amount: -2 }))),
+    make("forecast-one-cent-beyond", { ...dailyStock, opening_amount: 380, low_stock_threshold: 6.69 }, daily.map(x => ({ ...x, change_amount: -2 }))),
+    make("midnight-boundaries", { ...stock, opening_amount: 12 }, [log(5400, 3.5, -1), log(5401, 2.5, -2), log(5402, 0.5, -3)]),
+    make("start-partial-day", { ...stock, opened_at: ago(2.5), opening_amount: 8 }, [log(5500, 2.5, -1), log(5501, 1, -1)], { ...review, verifiedFrom: ago(2.5) }),
+    make("exclude-first-partial-day", { ...stock, opened_at: ago(3.1), opening_amount: 8 }, [log(5510, 3.1, -1), log(5511, 1, -1)], { ...review, verifiedFrom: ago(3.1) }),
+    make("reference-cap", { ...stock, opened_at: ago(500) }, weekly, { ...review, verifiedFrom: ago(500) }),
     make("reversed", stock, [...weekly].reverse()),
     make("decimal-equality", dailyStock, daily),
     make("one-cent-beyond", { ...dailyStock, low_stock_threshold: 19.29 }, daily),
@@ -57,50 +67,69 @@ if (process.argv[2] === "--fixtures") {
   const cases = fixtures(), results = Object.fromEntries(cases.map((c) => [c.name, calculateStockRisk(c.stock, c.logs, c.review, new Date(c.asOf))]));
   const weekly = results.weekly;
   assert.equal(weekly.status, "ready");
-  // Weekly events at ages 1,8,...,148 cover precisely endpoints k=0,...,148.
-  assert.equal(weekly.sampleWindowCount, 174);
-  assert.equal(weekly.reachedWindowCount, 149);
+  assert.equal(weekly.referenceDays, 179);
   assert.equal(weekly.outboundDayCount, 22);
-  assert.deepEqual(weekly.windowOutbound, { median: 2.5, p95: 2.5, max: 2.5 });
-  assert.equal(weekly.historicalReachRate, 0.856322);
+  assert.equal(weekly.forecastOutboundAmount, 2.375);
+  assert.equal(weekly.forecastMarginAmount, -0.375);
+  assert.equal(weekly.smoothedIntervalDays, 7);
+  assert.equal(weekly.smoothedOutboundSize, 2.5);
   assert.equal(weekly.needsAttention, true);
   for (const name of ["reversed", "cancelled-excluded", "inbound-not-demand"]) assert.deepEqual(results[name], weekly);
+  // Hand-calculated SBA, not values taken from the implementation.
+  assert.equal(results.irregular.smoothedOutboundSize, 2.58);
+  assert.equal(results.irregular.smoothedIntervalDays, 9.3);
+  assert.equal(results.irregular.forecastOutboundAmount, 1.844839);
+  assert.equal(results.monthly.status, "ready");
+  assert.equal(results.monthly.outboundDayCount, 6);
+  assert.equal(results.monthly.forecastOutboundAmount, 0.554167);
+  assert.equal(results.monthly.forecastMarginAmount, 1.445833);
+  assert.equal(results.monthly.needsAttention, false);
   for (const name of ["decimal-equality", "over-200-records"]) {
     assert.equal(results[name].status, "ready");
-    assert.equal(results[name].reachedWindowCount, 174);
-    assert.deepEqual(results[name].windowOutbound, { median: 0.7, p95: 0.7, max: 0.7 });
+    assert.equal(results[name].forecastOutboundAmount, 0.665);
+    assert.equal(results[name].outboundDayCount, 179);
   }
-  assert.equal(results["one-cent-beyond"].reachedWindowCount, 0);
-  assert.equal(results["one-cent-beyond"].needsAttention, false);
-  for (const k of [16, 17]) {
-    const r = results["attention-boundary-" + k];
-    assert.equal(r.status, "ready");
-    assert.equal(r.sampleWindowCount, 84);
-    assert.equal(r.reachedWindowCount, k);
-    assert.equal(r.needsAttention, k === 17);
-  }
-  const statuses = { inactive: "inactive", "no-threshold": "threshold_not_set", "below-threshold": "already_below_threshold", unverified: "data_quality_issue", revoked: "data_quality_issue", "short-history": "insufficient_history", "no-outbound": "no_outbound_history", sparse: "sparse_history", "mismatched-ledger": "data_quality_issue", "negative-history": "data_quality_issue", "future-occurrence": "data_quality_issue", "retroactive-change": "data_quality_issue", "late-registration": "data_quality_issue", "resumed-recently": "insufficient_history", "stockout-exclusions": "sparse_history" };
+  assert.equal(results["forecast-equality"].forecastOutboundAmount, 13.3);
+  assert.equal(results["forecast-equality"].forecastMarginAmount, 0);
+  assert.equal(results["forecast-equality"].needsAttention, true);
+  assert.equal(results["forecast-one-cent-beyond"].needsAttention, false);
+  const statuses = { inactive: "inactive", "no-threshold": "threshold_not_set", "below-threshold": "already_below_threshold", unverified: "data_quality_issue", revoked: "data_quality_issue", "short-history": "sparse_history", "no-outbound": "no_outbound_history", sparse: "sparse_history", "same-day": "sparse_history", "today-only": "no_outbound_history", "mismatched-ledger": "data_quality_issue", "negative-history": "data_quality_issue", "future-occurrence": "data_quality_issue", "retroactive-change": "data_quality_issue", "late-registration": "data_quality_issue" };
   for (const [name, status] of Object.entries(statuses)) {
     assert.equal(results[name].status, status, name);
-    assert.equal(results[name].historicalReachRate, null, name);
-    assert.equal(results[name].windowOutbound, null, name);
+    assert.equal(results[name].forecastOutboundAmount, null, name);
+    assert.equal(results[name].forecastMarginAmount, null, name);
     assert.equal(results[name].needsAttention, null, name);
   }
-  assert.equal(results["resumed-recently"].referenceDays, 10);
-  // Valid endpoints k=0,...,13 and k=170,...,173; crossing the zero period is censored.
-  assert.equal(results["stockout-exclusions"].sampleWindowCount, 18);
-  assert.equal(results["stockout-exclusions"].excludedWindowCount, 156);
+  assert.equal(results["resumed-recently"].referenceDays, 9);
+  assert.equal(results["stockout-exclusions"].status, "ready");
+  assert.equal(results["stockout-exclusions"].referenceDays, 19);
+  assert.deepEqual(results["stockout-exclusions"].exclusionReasonCodes, ["stockout_restart"]);
   assert.deepEqual(results["retroactive-change"].reasonCodes, ["history_changed_since_review"]);
   assert.equal(results["new-movement"].status, "ready");
+  assert.equal(results["new-movement"].forecastOutboundAmount, weekly.forecastOutboundAmount);
+  assert.equal(results["new-movement"].currentAmount, 5.5);
+  // [start,end): midnight at the history end is part of today, not a completed day.
+  assert.equal(results["midnight-boundaries"].outboundDayCount, 2);
+  assert.equal(results["midnight-boundaries"].forecastOutboundAmount, 7.315);
+  assert.equal(results["start-partial-day"].outboundDayCount, 2);
+  assert.equal(results["start-partial-day"].referenceDays, 2);
+  assert.equal(results["exclude-first-partial-day"].referenceDays, 2);
+  assert.equal(results["exclude-first-partial-day"].outboundDayCount, 1);
+  assert.equal(results["exclude-first-partial-day"].status, "sparse_history");
+  assert.equal(results["reference-cap"].referenceDays, 365);
+  assert.equal(results["reference-cap"].forecastOutboundAmount, weekly.forecastOutboundAmount);
   for (const name of ["new-record-corrected", "new-record-cancelled"]) {
     assert.deepEqual(results[name].reasonCodes, ["history_changed_since_review"]);
-    assert.equal(results[name].historicalReachRate, null);
+    assert.equal(results[name].forecastOutboundAmount, null);
   }
-  assert.match(stockRiskText(results["one-cent-beyond"]), /ありません/);
-  assert.match(stockRiskText(results["decimal-equality"]), /すべて/);
-  assert.match(stockRiskText({ ...weekly, reachedWindowCount: 1 }), /1%未満/);
+  assert.match(stockRiskText(weekly), /今後7日間の予測出庫量/);
+  assert.doesNotMatch(stockRiskText(weekly), /%|確率/);
+  assert.match(stockRiskText({ ...weekly, forecastOutboundAmount: 0.001 }), /0.01 L未満/);
   const first = cases[0];
   const duplicate = calculateStockRisk(first.stock, [...first.logs, first.logs[0]], first.review, new Date(first.asOf));
   assert.deepEqual(duplicate.reasonCodes, ["duplicate_log"]);
-  console.log("stock risk: " + cases.length + " synthetic scenarios, boundaries, decimal equality and wording verified");
+  // No extra occurrences: SBA keeps its last size/interval estimates (documented limitation).
+  const later = calculateStockRisk(first.stock, first.logs, first.review, new Date(Date.parse(first.asOf) + 30 * 86400000));
+  assert.equal(later.forecastOutboundAmount, weekly.forecastOutboundAmount);
+  console.log("SBA forecast: " + cases.length + " synthetic scenarios, hand calculations, monthly demand, JST boundaries, stockout restart and quality gates verified");
 }

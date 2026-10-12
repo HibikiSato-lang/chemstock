@@ -6,19 +6,19 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useChemstock } from "./chemstock-provider";
 import { formatAmount, Stock, StockRiskReviewState } from "@/lib/chemstock-ui";
 import { demoReviewState, reviewStartInput, sameVersion } from "@/lib/inventory-review";
-import { StockRisk, stockRiskText } from "@/lib/stock-risk";
+import { STOCK_RISK_METHOD, StockRisk, stockRiskText } from "@/lib/stock-risk";
 
 const reasonLabels: Record<string, string> = {
   history_quality_unverified: "出庫履歴の確認が完了していません。",
   history_changed_since_review: "確認後に過去の履歴が変更されています。再確認が必要です。",
-  history_too_short: "確認できる記録期間が90日未満です。",
-  too_few_outbound_days: "出庫のあった日区間が10未満です。",
-  too_few_non_overlapping_windows: "使用できる非重複の7日間区間が12未満です。",
+  history_too_short: "確認できる完全な日次記録が2日未満です。",
+  too_few_outbound_days: "出庫間隔を計算するため、異なる2日以上の出庫が必要です。",
   ledger_mismatch: "現在量と入出庫履歴の残高が一致していません。",
   invalid_history_balance: "過去の残量を正しく復元できません。",
 };
 const when = (value: string) => new Date(value).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-const matches = (risk: StockRisk, stock: Stock) => risk.currentAmount === stock.amount && risk.lowStockThreshold === stock.low_stock_threshold && stock.is_active;
+const matches = (risk: StockRisk, stock: Stock) => risk.methodVersion === STOCK_RISK_METHOD && risk.currentAmount === stock.amount && risk.lowStockThreshold === stock.low_stock_threshold && stock.is_active;
+const forecastAmount = (amount: number) => Math.abs(amount) > 0 && Math.abs(amount) < 0.01 ? "0.01 L未満" : formatAmount(Math.abs(amount));
 
 function RiskConfirmation({ title, description, onCancel, onConfirm }: { title: string; description: string; onCancel: () => void; onConfirm: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -50,22 +50,25 @@ export function StockRiskDetails({ stock }: { stock: Stock }) {
   if (!ctx.stockRiskEnabled || !stock.is_active) return null;
   const risk = ctx.stockRisks.find((item) => item.inventoryId === stock.id);
   if (risk?.status === "already_below_threshold") return null;
-  return <section className="cs-card cs-risk" aria-label="7日間の出庫を踏まえた見通し">
-    <h3>7日間の出庫を踏まえた見通し</h3>
+  return <section className="cs-card cs-risk" aria-label="7日間の予測出庫量">
+    <h3>7日間の予測出庫量（試行）</h3>
     {ctx.riskLoading ? <p role="status">見通しを更新しています…</p> : ctx.error || ctx.riskError || !risk || !matches(risk, stock) ? <><p>見通しを確認できません。画面を更新してください。</p><button className="cs-small-button" onClick={ctx.refresh}>更新</button></> : <>
       {risk.marginAmount != null && risk.marginAmount > 0 && <p>下限まで <strong>{formatAmount(risk.marginAmount)}</strong></p>}
       <p>{stockRiskText(risk)}</p>
+      {risk.status === "ready" && <p>{risk.forecastMarginAmount! > 0 ? <>予測出庫後、下限までの余裕：約 <strong>{forecastAmount(risk.forecastMarginAmount!)}</strong></> : risk.forecastMarginAmount === 0 ? <strong>予測出庫後は下限と同じ量になります。</strong> : <>予測出庫後、下限に対する不足：約 <strong>{forecastAmount(risk.forecastMarginAmount!)}</strong></>}</p>}
       {ctx.data?.account.role !== "global_admin" && risk.reasonCodes.some((code) => code === "history_quality_unverified" || code === "history_changed_since_review") && <p className="cs-muted">全体管理者に履歴の確認を依頼してください。</p>}
       {risk.reasonCodes.map((code) => <p className="cs-muted" key={code}>{reasonLabels[code] || "履歴の日時・数量・確認期間を確認してください。"}</p>)}
-      {risk.status === "ready" && <p className="cs-muted">補充がない場合の参考です。過去の出庫の割合であり、将来の確率や安全の保証ではありません。</p>}
+      {risk.status === "ready" && <p className="cs-muted">補充がなく、過去と同様の出庫が続く場合の平均的な見積もりです。次の出庫日・1回の出庫量は予測していません。</p>}
       {risk.referenceDays != null && <details className="cs-risk-evidence"><summary>計算の根拠</summary>
         <dl><dt>参照期間</dt><dd>{risk.referenceDays}日（{risk.historyStartAt && when(risk.historyStartAt)}〜{when(risk.historyEndAt)}）</dd>
-          <dt>使用した7日間の区間</dt><dd>{risk.sampleWindowCount}区間{risk.reachedWindowCount != null && ` ／ 余裕量以上の出庫 ${risk.reachedWindowCount}区間`}</dd>
-          <dt>出庫のあった日区間</dt><dd>{risk.outboundDayCount}区間</dd><dt>非重複の7日間区間</dt><dd>{risk.nonOverlappingWindowCount}区間</dd>
-          <dt>除外した区間</dt><dd>{risk.excludedWindowCount}区間{risk.excludedWindowCount ? "（在庫ゼロが継続した期間）" : ""}</dd>
-          {risk.windowOutbound && <><dt>7日間出庫量の中央値</dt><dd>{formatAmount(risk.windowOutbound.median)}</dd><dt>95%点</dt><dd>{formatAmount(risk.windowOutbound.p95)}</dd><dt>最大値</dt><dd>{formatAmount(risk.windowOutbound.max)}</dd></>}
+          <dt>出庫があった日</dt><dd>{risk.outboundDayCount}日</dd>
+          {risk.lastOutboundAt && <><dt>最後の出庫（参照期間内）</dt><dd>{when(risk.lastOutboundAt)}</dd></>}
+          {risk.status === "ready" && <><dt>平滑化した日別出庫量</dt><dd>{forecastAmount(risk.smoothedOutboundSize!)}</dd><dt>平滑化した出庫間隔</dt><dd>{risk.smoothedIntervalDays?.toLocaleString("ja-JP", { maximumFractionDigits: 2 })}日</dd></>}
+          <dt>予測手法</dt><dd>SBA法（Syntetos–Boylan Approximation）</dd><dt>平滑化係数（試行値）</dt><dd>{risk.smoothingAlpha}</dd>
           <dt>計算日時（日本時間）</dt><dd>{when(risk.generatedAt)}</dd></dl>
-        <p className="cs-muted">7日間の区間は1日ずつずらしているため、同じ出庫が複数区間に含まれます。割合は過去の出庫に基づくもので、将来の確率や安全の保証ではありません。</p>
+        <p className="cs-muted">日本時間の前日までの記録を使用します。2日以上の出庫は計算上の条件であり、精度を保証する条件ではありません。出庫の停止・研究計画の変更には追随しにくい手法です。</p>
+        {risk.exclusionReasonCodes.includes("stockout_restart") && <p className="cs-muted">在庫ゼロが継続したため、補充後の完全な日次記録から計算し直しています。</p>}
+        <p className="cs-muted"><a href="https://doi.org/10.1016/j.ijforecast.2004.10.001" target="_blank" rel="noreferrer">手法の論文：Syntetos &amp; Boylan（2005）</a>。本システムの実データでの予測精度は未検証です。</p>
       </details>}
     </>}
   </section>;
@@ -75,7 +78,7 @@ export function StockRiskHomeRows({ stocks }: { stocks: Stock[] }) {
   const ctx = useChemstock();
   const low = stocks.filter((stock) => stock.is_active && stock.low_stock_threshold != null && stock.amount <= stock.low_stock_threshold);
   const risks = !ctx.stockRiskEnabled || ctx.riskLoading || ctx.error || ctx.riskError ? [] : ctx.stockRisks.filter((risk) => risk.status === "ready" && risk.needsAttention && stocks.some((stock) => stock.id === risk.inventoryId && matches(risk, stock)))
-    .sort((a, b) => b.reachedWindowCount! * a.sampleWindowCount! - a.reachedWindowCount! * b.sampleWindowCount! || a.inventoryId.localeCompare(b.inventoryId));
+    .sort((a, b) => a.forecastMarginAmount! - b.forecastMarginAmount! || a.inventoryId.localeCompare(b.inventoryId));
   if (!low.length && !risks.length) return null;
   const name = (stock: Stock) => ctx.data?.solvents.find((item) => item.id === stock.solvent_id)?.name || "不明な溶媒";
   const row = (risk: StockRisk) => {
@@ -86,7 +89,7 @@ export function StockRiskHomeRows({ stocks }: { stocks: Stock[] }) {
     {low.length > 0 && <p className="cs-muted">下限以下：{low.length}件</p>}
     {low.slice(0, 3).map((stock) => <Link className="cs-alert-row" href={ctx.href(`/inventory/detail/${stock.id}`)} key={stock.id}>{name(stock)}：下限以下（残量 {formatAmount(stock.amount)}）<ChevronRight size={15} /></Link>)}
     {low.length > 3 && <details><summary>他{low.length - 3}件</summary>{low.slice(3).map((stock) => <Link className="cs-alert-row" href={ctx.href(`/inventory/detail/${stock.id}`)} key={stock.id}>{name(stock)}：下限以下（残量 {formatAmount(stock.amount)}）<ChevronRight size={15} /></Link>)}</details>}
-    {risks.length > 0 && <><p className="cs-muted">7日間の出庫を踏まえた見通し</p>{risks.slice(0, 3).map(row)}{risks.length > 3 && <details><summary>他{risks.length - 3}件</summary>{risks.slice(3).map(row)}</details>}</>}
+    {risks.length > 0 && <><p className="cs-muted">7日間の予測出庫で下限以下になる見込み（補充なし・試行）</p>{risks.slice(0, 3).map(row)}{risks.length > 3 && <details><summary>他{risks.length - 3}件</summary>{risks.slice(3).map(row)}</details>}</>}
   </div>;
 }
 
@@ -158,7 +161,7 @@ export function StockRiskEnableControl() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "保存できませんでした。"); }
     finally { sending.current = false; setSaving(false); }
   };
-  return <details className="cs-card cs-risk-quality"><summary>下限の見通し（試行）：{ctx.stockRiskEnabled ? "有効" : "無効"}</summary><p className="cs-muted">7日間の出庫量を使う方式を試行します。表示できるのは確認済みの履歴が十分にある在庫です。期間と表示条件は検証用の仮値です。</p>
+  return <details className="cs-card cs-risk-quality"><summary>下限の見通し（試行）：{ctx.stockRiskEnabled ? "有効" : "無効"}</summary><p className="cs-muted">SBA法による7日間の予測出庫量と下限までの余裕を表示します。確認済みの履歴を使います。期間・平滑化係数は試行値で、実データでの予測精度は未検証です。</p>
     <form onSubmit={(event) => { event.preventDefault(); void save(!ctx.stockRiskEnabled); }}><label className="cs-field">実操作者名 <em>必須</em><input value={operator} onChange={(event) => setOperator(event.target.value)} maxLength={100} required /></label><label className="cs-field">変更理由 <em>必須</em><input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={200} required /></label>
       {error && <p className="cs-message" role="alert">{error}</p>}<button className="cs-button" disabled={saving}>{ctx.stockRiskEnabled ? "無効にする" : "有効にする"}</button></form>
     {pendingEnabled !== null && <RiskConfirmation title={pendingEnabled ? "下限の見通しを有効にしますか？" : "下限の見通しを無効にしますか？"} description="変更内容・実操作者名・理由を記録します。" onCancel={() => setPendingEnabled(null)} onConfirm={() => { void save(pendingEnabled, true); }} />}

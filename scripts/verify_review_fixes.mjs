@@ -23,7 +23,14 @@ const reviewed = demoReviewState(data, stock.id);
 assert.ok(reviewed.eligible && reviewed.auditId);
 const risk = calculateStockRisk(stock, data.logs, reviewed, now);
 assert.equal(risk.status, "ready");
-assert.match(stockRiskText(risk), /過去180日.*7日分.*余裕量2 L.*約86%/);
+assert.match(stockRiskText(risk), /今後7日間の予測出庫量：約2.38 L/);
+const monthly = withStockRiskSample(structuredClone(demoData), now, "monthly");
+const monthlyStock = monthly.stocks.find(item => item.id === stock.id);
+const monthlyRisk = calculateStockRisk(monthlyStock, monthly.logs, demoReviewState(monthly, stock.id), now);
+assert.equal(monthlyRisk.status, "ready");
+assert.equal(monthlyRisk.forecastOutboundAmount, 0.554167);
+assert.equal(monthlyRisk.forecastMarginAmount, 1.445833);
+assert.equal(monthlyRisk.needsAttention, false);
 const disabled = { ...data, settings: { ...data.settings, stockRiskEnabled: false } };
 assert.deepEqual(demoReviewState(disabled, stock.id), reviewed);
 
@@ -38,7 +45,7 @@ assert.equal(audit.after_value.inventory.is_active, true);
 const resumedRisk = calculateStockRisk(restarted.stocks.find((item) => item.id === stock.id), restarted.logs, { ...reviewed, resumedAt: audit.created_at }, now);
 assert.equal(resumedRisk.status, "insufficient_history");
 assert.equal(resumedRisk.referenceDays, 0);
-assert.equal(resumedRisk.historicalReachRate, null);
+assert.equal(resumedRisk.forecastOutboundAmount, null);
 assert.equal(activateDemoStock(restarted, stock.room_id, stock.solvent_id, "確認者", "再開", now.toISOString()), restarted);
 
 const created = activateDemoStock(data, "synthetic-room", stock.solvent_id, "確認者", "追加", now.toISOString());

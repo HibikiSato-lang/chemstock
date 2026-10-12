@@ -32,7 +32,7 @@ def json_sql(value: object) -> str:
 def normalized(value: dict) -> dict:
     # PostgreSQL emits an offset; TypeScript emits Z. Compare the same instants.
     result = dict(value)
-    for field in ("historyStartAt", "historyEndAt", "generatedAt"):
+    for field in ("historyStartAt", "historyEndAt", "generatedAt", "lastOutboundAt"):
         if result[field]:
             result[field] = int(datetime.fromisoformat(result[field].replace("Z", "+00:00")).timestamp() * 1000)
     return result
@@ -88,6 +88,17 @@ def main() -> None:
                     f"{'null' if case['review'] is None else json_sql(case['review'])},"
                     f"{literal(case['asOf'])}::timestamptz)"))
                 assert normalized(actual) == normalized(expected), (case["name"], actual, expected)
+
+            # JST aggregation and 365*24h cap must not depend on session DST.
+            case = next(c for c in cases if c["name"] == "reference-cap")
+            expected = results[cases.index(case)]
+            actual = json.loads(sql(
+                "set timezone='America/New_York'; select private.calculate_stock_risk("
+                f"jsonb_populate_record(null::public.inventory, {json_sql(case['stock'])}),"
+                f"{json_sql(case['logs'])}, {json_sql(case['review'])},"
+                f"{literal(case['asOf'])}::timestamptz)"))
+            assert normalized(actual) == normalized(expected), (actual, expected)
+            sql("set timezone='UTC'; select 1")
 
             clock = sql("select to_char(statement_timestamp() at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')")
             sample = json.loads(run(node + ["--fixtures", clock]))[0]
@@ -163,8 +174,8 @@ def main() -> None:
             meta = next(item for item in json.loads(sql(auth(GLOBAL, "select public.stock_risk_reviews()"))) if item["inventoryId"] == STOCK)
             assert meta["auditId"] == verified["auditId"] and meta["eligible"] is True
             risk = read()[0]
-            assert risk["status"] == "ready" and risk["reachedWindowCount"] == 149, risk
-            assert risk["windowOutbound"] == {"median": 2.5, "p95": 2.5, "max": 2.5}
+            assert risk["status"] == "ready" and risk["forecastOutboundAmount"] == 2.375, risk
+            assert risk["forecastMarginAmount"] == -0.375
             assert sql(f"select last_updated from public.inventory where id='{STOCK}'") == revision
             assert sql("select count(*) from public.notifications") == "0"
             assert sql("select count(*) from private.email_notification_deliveries") == "0"
@@ -176,7 +187,7 @@ def main() -> None:
             changed = read()[0]
             assert changed["status"] == "data_quality_issue"
             assert changed["reasonCodes"] == ["history_changed_since_review"]
-            assert changed["historicalReachRate"] is None
+            assert changed["forecastOutboundAmount"] is None
             revision = sql(f"select last_updated from public.inventory where id='{STOCK}'")
             quality["expectedLastUpdated"] = revision
             quality["expectedReviewAuditId"] = verified["auditId"]

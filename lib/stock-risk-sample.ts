@@ -1,17 +1,19 @@
 import type { DataSet, StockLog } from "./chemstock-ui";
 
 // Explicit preview scenario; it is never submitted to the database.
-export function withStockRiskSample(data: DataSet, now = new Date()): DataSet {
+export function withStockRiskSample(data: DataSet, now = new Date(), frequency: "weekly" | "monthly" = "weekly"): DataSet {
   const stock = data.stocks.find((item) => item.id === "stock-methanol");
   if (!stock) return data;
   const ago = (days: number) => new Date(now.getTime() - days * 86400000).toISOString();
   const openedAt = new Date(now.getTime() - 180 * 86400000 - 1000).toISOString();
-  const logs: StockLog[] = Array.from({ length: 22 }, (_, i) => ({
+  const count = frequency === "monthly" ? 6 : 22;
+  const spacing = frequency === "monthly" ? 30 : 7;
+  const logs: StockLog[] = Array.from({ length: count }, (_, i) => ({
     id: `risk-sample-${i}`, inventory_id: stock.id, change_amount: -2.5, operator_name: "表示例",
-    purpose: "見通しの表示確認用（合成データ）", status: "active", occurred_at: ago(i * 7 + 1),
-    created_at: ago(i * 7 + 1), updated_at: ago(i * 7 + 1),
+    purpose: "見通しの表示確認用（合成データ）", status: "active", occurred_at: ago(i * spacing + 1),
+    created_at: ago(i * spacing + 1), updated_at: ago(i * spacing + 1),
   }));
-  const sampleStock = { ...stock, opening_amount: 61, amount: 6, low_stock_threshold: 4, opened_at: openedAt, last_updated: now.toISOString(), is_active: true };
+  const sampleStock = { ...stock, opening_amount: 6 + count * 2.5, amount: 6, low_stock_threshold: 4, opened_at: openedAt, last_updated: now.toISOString(), is_active: true };
   return {
     ...data, settings: { ...data.settings, stockRiskAvailable: true, stockRiskEnabled: true },
     stocks: data.stocks.map((item) => item.id === stock.id ? sampleStock : item),

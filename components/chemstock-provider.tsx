@@ -30,7 +30,7 @@ type ChemstockContextValue = {
   stockRiskAvailable: boolean;
   stockRiskEnabled: boolean;
   runStockRiskCommand: (operation: "enable" | "quality", inventoryId: string | null, payload: Record<string, unknown>) => Promise<void>;
-  loadStockRiskSample: () => void;
+  loadStockRiskSample: (frequency?: "weekly" | "monthly") => void;
   href: (path: string) => string;
 };
 
@@ -356,8 +356,8 @@ export function ChemstockProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [preview, mutateDemo, refresh]);
 
-  const loadStockRiskSample = useCallback(() => {
-    mutateDemo((current) => withStockRiskSample(current));
+  const loadStockRiskSample = useCallback((frequency: "weekly" | "monthly" = "weekly") => {
+    mutateDemo((current) => withStockRiskSample(current, new Date(), frequency));
     setSelectedRoomId("room-yamada");
   }, [mutateDemo]);
 
