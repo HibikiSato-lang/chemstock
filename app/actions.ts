@@ -1,27 +1,27 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { signInWithAccountId } from "@/lib/account-login";
 import { redirect } from "next/navigation";
 
 export async function signInAction(prevState: unknown, formData: FormData) {
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const supabase = await createClient();
-
-    if (!email || !password) {
-        return { error: "IDとパスワードを入力してください" };
+    const rawLoginId = formData.get("login_id");
+    const password = formData.get("password");
+    if (typeof rawLoginId !== "string" || !rawLoginId.trim() || typeof password !== "string" || !password) {
+        return { error: "アカウントIDとパスワードを入力してください" };
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
-
-    if (error) {
-        return { error: "ログインに失敗しました: " + error.message };
+    let signedIn = false;
+    try {
+        signedIn = await signInWithAccountId(rawLoginId.trim(), password);
+    } catch {
+        // Keep lookup and authentication failures indistinguishable to callers.
+    }
+    if (!signedIn) {
+        return { error: "ログインできませんでした。IDとパスワードを確認してください。" };
     }
 
-    return redirect("/protected"); // Fixed redirect to correct path
+    return redirect("/protected");
 }
 
 export async function signInAsGuestAction() {

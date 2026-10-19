@@ -15,17 +15,19 @@ npm run dev
 
 ## 実データを表示する
 
-`.env.local` に `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` を設定します。対応する Supabase Auth ユーザー、`accounts` 行、[DBマイグレーション](supabase/README.md) が必要です。ログイン後、所属研究室の在庫・履歴を読み込みます。全体管理者は研究室を選択できます。
+`.env.local` に `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` と、サーバー専用の `SUPABASE_SERVICE_ROLE_KEY` を設定します。管理用キーに `NEXT_PUBLIC_` を付けたり、ブラウザーへ渡したりしないでください。対応する Supabase Auth ユーザー、`accounts` 行、[DBマイグレーション](supabase/README.md) が必要です。ログイン後、所属研究室の在庫・履歴を読み込みます。全体管理者は研究室を選択できます。
+
+ログインには管理者が事前発行したアカウントID（`accounts.login_id`、例 `yamada_lab`）とパスワードを使います。IDの前後の空白は除き、大小文字は区別します。サーバー内で `accounts.id` と同じUUIDのAuthユーザーを照合し、現在のAuthメールを認証に使います。任意の連絡先である `accounts.email` は認証には使いません。アカウントの作成・回復は管理者が行い、自己登録・メール回復の旧画面はログイン画面へ戻ります。アプリ側の画面変更だけでは、Supabase側のサインアップ設定は変わりません。
 
 ### 開発用テストアカウント
 
-新スキーマを適用した開発用 Supabase に対し、`CHEMSTOCK_TEST_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を環境変数で設定して `npm run test-accounts:create` を実行します。管理用キーはサーバー側の作成スクリプトだけで使い、`NEXT_PUBLIC_` 付きの変数には入れません。スクリプトは `テスト研究室` を作成または再利用し、次の3アカウントを作成します。
+新スキーマを適用した開発用 Supabase に対し、`CHEMSTOCK_TEST_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を環境変数で設定して `npm run test-accounts:create` を実行します。管理用キーはサーバー内だけで使い、`NEXT_PUBLIC_` 付きの変数には入れません。スクリプトは `テスト研究室` を作成または再利用し、次の3アカウントを作成します。
 
-| 種類 | ログイン用メール | DBロール | 所属 |
+| 種類 | アカウントID | DBロール | 所属 |
 |---|---|---|---|
-| 一般ユーザー | `test-lab@chemstock.test` | `lab` | テスト研究室 |
-| admin | `test-admin@chemstock.test` | `global_admin` | なし |
-| 管理者（溶媒） | `test-solvent-admin@chemstock.test` | `solvent_room_admin` | テスト研究室 |
+| 一般ユーザー | `test-lab` | `lab` | テスト研究室 |
+| admin | `test-admin` | `global_admin` | なし |
+| 管理者（溶媒） | `test-solvent-admin` | `solvent_room_admin` | テスト研究室 |
 
 生成されたパスワードは Git 管理外の `test-accounts.credentials.json` に保存されます。再実行時は既存アカウントの権限を照合し、不一致があれば停止します。ファイルを失った場合はスクリプト管理下のテストユーザーのパスワードを再発行します。メール確認は作成時に済ませるため、テストドメインへのメール配信は不要です。
 
